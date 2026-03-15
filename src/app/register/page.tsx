@@ -36,6 +36,7 @@ export default function RegisterPage() {
       const res = await fetch(`${apiUrl}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Good practice to include here too
         body: JSON.stringify({ 
           name, 
           email, 
@@ -70,6 +71,8 @@ export default function RegisterPage() {
       const res = await fetch(`${apiUrl}/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // --- CRITICAL FIX: SAVES THE COOKIE ---
+        credentials: 'include', 
         body: JSON.stringify({ email, otp }),
       });
 
@@ -125,10 +128,11 @@ export default function RegisterPage() {
                   <input 
                     type="text" 
                     required
+                    disabled={isLoading}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Sachin Sir"
-                    className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena"
+                    className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena disabled:opacity-50 disabled:bg-zinc-50"
                   />
                 </div>
 
@@ -137,10 +141,11 @@ export default function RegisterPage() {
                   <input 
                     type="email" 
                     required
+                    disabled={isLoading}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="sachin@example.com"
-                    className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena"
+                    className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena disabled:opacity-50 disabled:bg-zinc-50"
                   />
                 </div>
 
@@ -150,10 +155,11 @@ export default function RegisterPage() {
                     type="password" 
                     required
                     minLength={6}
+                    disabled={isLoading}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena"
+                    className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena disabled:opacity-50 disabled:bg-zinc-50"
                   />
                 </div>
 
@@ -170,7 +176,8 @@ export default function RegisterPage() {
               <div className="flex flex-col gap-4">
                 <button 
                   type="button"
-                  className="w-full h-11 p-2 bg-white rounded-lg outline outline-1 outline-zinc-300 flex justify-center items-center gap-3 hover:bg-zinc-50 transition-colors"
+                  disabled={isLoading}
+                  className="w-full h-11 p-2 bg-white rounded-lg outline outline-1 outline-zinc-300 flex justify-center items-center gap-3 hover:bg-zinc-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
                   <span className="text-stone-950 text-sm font-medium font-helvena">
@@ -179,7 +186,7 @@ export default function RegisterPage() {
                 </button>
 
                 {/* Login Link */}
-                <div className="text-center mt-2">
+                <div className={`text-center mt-2 ${isLoading ? 'pointer-events-none opacity-50' : ''}`}>
                   <span className="text-zinc-800 text-sm font-helvena">Already have an account? </span>
                   <Link href="/login" className="text-[#FE6100] text-sm font-semibold hover:underline">
                     Sign In
@@ -197,10 +204,11 @@ export default function RegisterPage() {
                     type="text" 
                     required
                     maxLength={6}
+                    disabled={isLoading}
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} // Only allow numbers
                     placeholder="123456"
-                    className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena tracking-[0.5em] text-center text-lg"
+                    className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena tracking-[0.5em] text-center text-lg disabled:opacity-50 disabled:bg-zinc-50"
                   />
                 </div>
 
@@ -214,8 +222,9 @@ export default function RegisterPage() {
                 
                 <button 
                   type="button"
+                  disabled={isLoading}
                   onClick={() => setShowOtpStep(false)}
-                  className="text-zinc-500 text-sm mt-2 hover:text-stone-900 transition-colors"
+                  className="text-zinc-500 text-sm mt-2 hover:text-stone-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ← Back to Registration
                 </button>
@@ -224,7 +233,7 @@ export default function RegisterPage() {
           )}
 
           {/* Terms and Privacy (Stays at the bottom of the card) */}
-          <div className="text-center mt-2">
+          <div className={`text-center mt-2 ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
             <span className="text-zinc-500 text-xs font-helvena">
               By continuing, you agree to our <span className="font-medium text-zinc-700 cursor-pointer hover:underline">Terms</span> and <span className="font-medium text-zinc-700 cursor-pointer hover:underline">Privacy Policy</span>.
             </span>

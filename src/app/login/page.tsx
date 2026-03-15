@@ -29,6 +29,8 @@ export default function LoginPage() {
       const res = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // --- CRITICAL FIX: MUST INCLUDE CREDENTIALS FOR HTTP-ONLY COOKIES ---
+        credentials: 'include', 
         body: JSON.stringify({ email, password }),
       });
 
