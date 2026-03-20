@@ -73,7 +73,7 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
     <div className={`min-h-screen w-full transition-colors duration-500 ${globalThemeClass}`}>
       {!isAuthPage && <Navbar />}
       
-      <main className={!isAuthPage ? "pt-32" : ""}>
+      <main className={!isAuthPage ? "pt-0" : ""}>
         {children}
       </main>
     </div>
