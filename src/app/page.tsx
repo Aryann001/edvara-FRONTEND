@@ -4,7 +4,6 @@ import CourseSelection from '@/components/home/CourseSelection';
 import WhyEdvaraTable from '@/components/home/WhyEdvaraTable';
 import TestimonialSection from '@/components/home/TestimonialSection';
 import FAQSection from '@/components/home/FAQSection';
-import Footer from '@/components/Footer';
 import FreePreviews from '@/components/home/FreePreviews';
 import BentoGrid from '@/components/home/BentoGrid';
 
@@ -19,7 +18,6 @@ export default function page() {
       <TestimonialSection />
       <FreePreviews />
       <FAQSection />
-      <Footer />
     </>
   );
 }

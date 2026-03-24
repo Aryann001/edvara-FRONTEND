@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Search, ArrowRight, Check, ChevronLeft, ShoppingCart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector } from '@/store/hooks';
+import RequestCoursePopup from '@/components/RequestCoursePopup'; // Integrated Popup
 
 // --- DATA ---
 const universities = [
@@ -55,6 +56,9 @@ export default function CourseSelection() {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  
+  // State for the Request Popup
+  const [isRequestPopupOpen, setIsRequestPopupOpen] = useState(false);
 
   const handleSelection = (id: string) => {
     setLastSelectedId(id);
@@ -129,11 +133,7 @@ export default function CourseSelection() {
                       </div>
                     </div>
                     <div className="self-stretch flex justify-start items-start gap-3 lg:gap-4">
-                      {/* Cart Icon Button */}
-                      <button className="w-10 h-10 lg:w-12 px-2 lg:px-3 bg-orange-600 rounded-lg shadow-lg flex justify-center items-center hover:bg-orange-700 transition-colors group shrink-0">
-                        <ShoppingCart className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
-                      </button>
-                      {/* Check Course Button */}
+                      {/* Check Course Button (Cart Icon Removed) */}
                       <button className="flex-1 h-10 px-4 lg:px-6 bg-white rounded-lg shadow-lg flex justify-center items-center gap-2 hover:bg-neutral-100 transition-colors group">
                         <span className="text-stone-950 text-sm font-medium font-['Helvena'] whitespace-nowrap">Check Course</span>
                         <ArrowRight className="w-4 h-4 text-stone-950 group-hover:translate-x-1 transition-transform shrink-0" />
@@ -152,194 +152,202 @@ export default function CourseSelection() {
 
   // --- ENGINEERING THEME RENDER (STRICTLY PRESERVED FROM PROVIDED CODE) ---
   return (
-    <section className="w-full bg-neutral-100 flex flex-col items-center">
-      <div className="w-full h-0 border-t border-gray-300" />
+    <>
+      <section className="w-full bg-neutral-100 flex flex-col items-center">
+        <div className="w-full h-0 border-t border-gray-300" />
 
-      <div className="w-full max-w-[1440px] px-5 md:px-10 lg:px-20 py-14 lg:py-24 flex flex-col items-center gap-10 lg:gap-14">
-        
-        {/* Header */}
-        <div className="flex flex-col items-center text-center gap-2">
-          <h2 className="text-[#FE6100] text-xl md:text-4xl italic font-normal font-['Libre_Baskerville']">
-            Engineering Courses
-          </h2>
-          <p className="text-black text-2xl md:text-5xl font-medium font-['Helvena'] leading-tight">
-            Find your subjects in 4 clicks
-          </p>
-        </div>
+        <div className="w-full max-w-[1440px] px-5 md:px-10 lg:px-20 py-14 lg:py-24 flex flex-col items-center gap-10 lg:gap-14">
+          
+          {/* Header */}
+          <div className="flex flex-col items-center text-center gap-2">
+            <h2 className="text-[#FE6100] text-xl md:text-4xl italic font-normal font-['Libre_Baskerville']">
+              Engineering Courses
+            </h2>
+            <p className="text-black text-2xl md:text-5xl font-medium font-['Helvena'] leading-tight">
+              Find your subjects in 4 clicks
+            </p>
+          </div>
 
-        {/* Stepper Progress Bar - Responsive Logic */}
-        <div className="w-full max-w-[800px] flex items-center justify-between gap-2 overflow-x-hidden pb-4">
-          {[1, 2, 3, 4].map((num, idx) => (
-            <React.Fragment key={num}>
-              <div className="flex items-center gap-2 shrink-0">
-                <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-500 ${
-                  step >= num ? 'border-indigo-700 bg-indigo-700 text-white' : 'border-gray-300 text-gray-400'
-                }`}>
-                  {step > num ? <Check className="w-4 h-4" strokeWidth={4} /> : num}
+          {/* Stepper Progress Bar - Responsive Logic */}
+          <div className="w-full max-w-[800px] flex items-center justify-between gap-2 overflow-x-hidden pb-4">
+            {[1, 2, 3, 4].map((num, idx) => (
+              <React.Fragment key={num}>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-500 ${
+                    step >= num ? 'border-indigo-700 bg-indigo-700 text-white' : 'border-gray-300 text-gray-400'
+                  }`}>
+                    {step > num ? <Check className="w-4 h-4" strokeWidth={4} /> : num}
+                  </div>
+                  {/* Desktop: Always show names | Mobile: Show name only if active */}
+                  <span className={`text-sm md:text-base font-['Helvena'] ${
+                    step === num ? 'inline text-indigo-700 font-bold' : 'hidden md:inline text-gray-400'
+                  }`}>
+                    {stepNames[idx]}
+                  </span>
                 </div>
-                {/* Desktop: Always show names | Mobile: Show name only if active */}
-                <span className={`text-sm md:text-base font-['Helvena'] ${
-                  step === num ? 'inline text-indigo-700 font-bold' : 'hidden md:inline text-gray-400'
-                }`}>
-                  {stepNames[idx]}
-                </span>
+                {idx < 3 && (
+                  <div className="flex-1 min-w-[20px] h-[2px] bg-gray-200">
+                    <motion.div 
+                      initial={{ width: "0%" }}
+                      animate={{ width: step > num ? "100%" : "0%" }}
+                      className="h-full bg-indigo-700"
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Main Selection Card */}
+          <div className="w-full bg-white rounded-xl md:rounded-[32px] p-4 md:p-6 lg:p-12 shadow-[0_8px_40px_rgba(0,0,0,0.02)] border border-gray-100 min-h-[500px] transition-all">
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 md:mb-12">
+              <div className="flex items-center gap-4">
+                <AnimatePresence>
+                  {step > 1 && (
+                    <motion.button 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      onClick={handleBack} 
+                      className="p-2 hover:bg-neutral-100 rounded-full transition-colors border border-gray-100"
+                    >
+                      <ChevronLeft className="w-6 h-6 md:w-7 md:h-7 text-black" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+                <h3 className="text-black text-lg md:text-3xl font-medium font-['Helvena']">
+                  {step === 1 && "Choose your university"}
+                  {step === 2 && "Select your branch"}
+                  {step === 3 && "Which semester?"}
+                  {step === 4 && "Preparing Subjects"}
+                </h3>
               </div>
-              {idx < 3 && (
-                <div className="flex-1 min-w-[20px] h-[2px] bg-gray-200">
-                  <motion.div 
-                    initial={{ width: "0%" }}
-                    animate={{ width: step > num ? "100%" : "0%" }}
-                    className="h-full bg-indigo-700"
-                    transition={{ duration: 0.5 }}
+              {step === 1 && (
+                <div className="relative w-full max-w-md">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Search university or branch..." 
+                    className="w-full pl-10 md:pl-12 pr-4 py-3 md:py-4 bg-neutral-50 rounded-xl md:rounded-2xl border border-gray-200 focus:border-[#FE6100] outline-none transition-all font-['Helvena'] text-sm md:text-base"
                   />
                 </div>
               )}
-            </React.Fragment>
-          ))}
-        </div>
-
-        {/* Main Selection Card */}
-        <div className="w-full bg-white rounded-xl md:rounded-[32px] p-4 md:p-6 lg:p-12 shadow-[0_8px_40px_rgba(0,0,0,0.02)] border border-gray-100 min-h-[500px] transition-all">
-          
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 md:mb-12">
-            <div className="flex items-center gap-4">
-              <AnimatePresence>
-                {step > 1 && (
-                  <motion.button 
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    onClick={handleBack} 
-                    className="p-2 hover:bg-neutral-100 rounded-full transition-colors border border-gray-100"
-                  >
-                    <ChevronLeft className="w-6 h-6 md:w-7 md:h-7 text-black" />
-                  </motion.button>
-                )}
-              </AnimatePresence>
-              <h3 className="text-black text-lg md:text-3xl font-medium font-['Helvena']">
-                {step === 1 && "Choose your university"}
-                {step === 2 && "Select your branch"}
-                {step === 3 && "Which semester?"}
-                {step === 4 && "Preparing Subjects"}
-              </h3>
             </div>
-            {step === 1 && (
-              <div className="relative w-full max-w-md">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search university or branch..." 
-                  className="w-full pl-10 md:pl-12 pr-4 py-3 md:py-4 bg-neutral-50 rounded-xl md:rounded-2xl border border-gray-200 focus:border-[#FE6100] outline-none transition-all font-['Helvena'] text-sm md:text-base"
-                />
-              </div>
-            )}
+
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={step}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+              >
+                {step === 1 && (
+                  <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+                    {universities.map((uni) => (
+                      <div 
+                        key={uni.id} 
+                        onClick={() => handleSelection(uni.id)}
+                        className={`relative p-3 md:p-6 rounded-xl md:rounded-3xl border-2 transition-all duration-300 ease-in-out cursor-pointer flex flex-col gap-6 md:gap-10 hover:bg-[#FE6100]/5 ${
+                          lastSelectedId === uni.id 
+                          ? 'border-[#FE6100] bg-[#FE6100]/5' 
+                          : 'border-gray-100 hover:border-[#FE6100]/30'
+                        }`}
+                      >
+                        <div className="w-9 h-9 md:w-14 md:h-14 bg-white flex items-center justify-center rounded-lg md:rounded-xl shadow-sm">
+                          <img src={`/universities/${uni.id}.png`} alt="logo" className="w-8 h-8 md:w-12 md:h-12 object-contain" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <h4 className="text-neutral-950 text-sm md:text-lg font-bold font-['Helvena'] line-clamp-1">{uni.name}</h4>
+                          <p className="text-gray-500 font-['Helvena'] text-xs md:text-sm">{uni.location}</p>
+                          <p className="text-[#FE6100] font-['Helvena'] text-[10px] md:text-sm font-semibold mt-1 md:mt-2">{uni.stats}</p>
+                        </div>
+                        <AnimatePresence>
+                          {lastSelectedId === uni.id && (
+                            <motion.div 
+                              initial={{ opacity: 0, scale: 0.5 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="absolute top-3 right-3 md:top-6 md:right-6"
+                            >
+                              <Check className="w-5 h-5 md:w-6 md:h-6 text-[#FE6100]" strokeWidth={4} />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+                    {branches.map((branch) => (
+                      <button 
+                        key={branch}
+                        onClick={() => handleSelection(branch)}
+                        className={`p-5 md:p-8 rounded-xl md:rounded-[24px] border-2 border-gray-100 hover:border-[#FE6100]/30 hover:bg-[#FE6100]/5 font-['Helvena'] text-base md:text-xl text-left font-medium transition-all duration-300 group flex justify-between items-center ${
+                          lastSelectedId === branch ? 'border-[#FE6100] bg-[#FE6100]/5' : ''
+                        }`}
+                      >
+                        {branch}
+                        <ArrowRight className={`w-5 h-5 md:w-6 md:h-6 transition-colors duration-300 ${lastSelectedId === branch ? 'text-[#FE6100]' : 'text-gray-300 group-hover:text-[#FE6100]'}`} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
+                    {semesters.map((sem) => (
+                      <button 
+                        key={sem}
+                        onClick={() => handleSelection(sem)}
+                        className={`py-6 md:py-10 rounded-xl md:rounded-[24px] border-2 border-gray-100 hover:border-[#FE6100]/30 hover:bg-[#FE6100]/5 font-['Helvena'] text-base md:text-2xl font-bold transition-all duration-300 ${
+                          lastSelectedId === sem ? 'border-[#FE6100] bg-[#FE6100]/5' : ''
+                        }`}
+                      >
+                        {sem.split(' ')[0]}
+                        <span className="block text-[10px] md:text-sm font-medium text-gray-400 mt-1 uppercase tracking-widest">Semester</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {step === 4 && (
+                  <div className="flex flex-col items-center justify-center py-20">
+                    <motion.div 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="text-[#FE6100] font-['Helvena'] text-xl md:text-2xl font-bold"
+                    >
+                      Fetching Curriculum...
+                    </motion.div>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.div
-              key={step}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+          {/* Footer info (Integrated Popup Trigger) */}
+          <div className="flex flex-col items-center gap-2 md:gap-3">
+            <p className="text-gray-400 text-sm md:text-base font-medium font-['Helvena']">
+              🚀 Adding 20+ universities through 2026
+            </p>
+            <button 
+              onClick={() => setIsRequestPopupOpen(true)}
+              className="text-indigo-700 text-sm md:text-lg font-bold font-['Helvena'] flex items-center gap-2 hover:underline transition-all"
             >
-              {step === 1 && (
-                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
-                  {universities.map((uni) => (
-                    <div 
-                      key={uni.id} 
-                      onClick={() => handleSelection(uni.id)}
-                      className={`relative p-3 md:p-6 rounded-xl md:rounded-3xl border-2 transition-all duration-300 ease-in-out cursor-pointer flex flex-col gap-6 md:gap-10 hover:bg-[#FE6100]/5 ${
-                        lastSelectedId === uni.id 
-                        ? 'border-[#FE6100] bg-[#FE6100]/5' 
-                        : 'border-gray-100 hover:border-[#FE6100]/30'
-                      }`}
-                    >
-                      <div className="w-9 h-9 md:w-14 md:h-14 bg-white flex items-center justify-center rounded-lg md:rounded-xl shadow-sm">
-                        <img src={`/universities/${uni.id}.png`} alt="logo" className="w-8 h-8 md:w-12 md:h-12 object-contain" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <h4 className="text-neutral-950 text-sm md:text-lg font-bold font-['Helvena'] line-clamp-1">{uni.name}</h4>
-                        <p className="text-gray-500 font-['Helvena'] text-xs md:text-sm">{uni.location}</p>
-                        <p className="text-[#FE6100] font-['Helvena'] text-[10px] md:text-sm font-semibold mt-1 md:mt-2">{uni.stats}</p>
-                      </div>
-                      <AnimatePresence>
-                        {lastSelectedId === uni.id && (
-                          <motion.div 
-                            initial={{ opacity: 0, scale: 0.5 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="absolute top-3 right-3 md:top-6 md:right-6"
-                          >
-                            <Check className="w-5 h-5 md:w-6 md:h-6 text-[#FE6100]" strokeWidth={4} />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {step === 2 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
-                  {branches.map((branch) => (
-                    <button 
-                      key={branch}
-                      onClick={() => handleSelection(branch)}
-                      className={`p-5 md:p-8 rounded-xl md:rounded-[24px] border-2 border-gray-100 hover:border-[#FE6100]/30 hover:bg-[#FE6100]/5 font-['Helvena'] text-base md:text-xl text-left font-medium transition-all duration-300 group flex justify-between items-center ${
-                        lastSelectedId === branch ? 'border-[#FE6100] bg-[#FE6100]/5' : ''
-                      }`}
-                    >
-                      {branch}
-                      <ArrowRight className={`w-5 h-5 md:w-6 md:h-6 transition-colors duration-300 ${lastSelectedId === branch ? 'text-[#FE6100]' : 'text-gray-300 group-hover:text-[#FE6100]'}`} />
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {step === 3 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-                  {semesters.map((sem) => (
-                    <button 
-                      key={sem}
-                      onClick={() => handleSelection(sem)}
-                      className={`py-6 md:py-10 rounded-xl md:rounded-[24px] border-2 border-gray-100 hover:border-[#FE6100]/30 hover:bg-[#FE6100]/5 font-['Helvena'] text-base md:text-2xl font-bold transition-all duration-300 ${
-                        lastSelectedId === sem ? 'border-[#FE6100] bg-[#FE6100]/5' : ''
-                      }`}
-                    >
-                      {sem.split(' ')[0]}
-                      <span className="block text-[10px] md:text-sm font-medium text-gray-400 mt-1 uppercase tracking-widest">Semester</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {step === 4 && (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <motion.div 
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="text-[#FE6100] font-['Helvena'] text-xl md:text-2xl font-bold"
-                  >
-                    Fetching Curriculum...
-                  </motion.div>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
+              Don't see yours? Request your university →
+            </button>
+          </div>
         </div>
+      </section>
 
-        {/* Footer info */}
-        <div className="flex flex-col items-center gap-2 md:gap-3">
-          <p className="text-gray-400 text-sm md:text-base font-medium font-['Helvena']">
-            🚀 Adding 20+ universities through 2026
-          </p>
-          <button className="text-indigo-700 text-sm md:text-lg font-bold font-['Helvena'] flex items-center gap-2 hover:underline transition-all">
-            Don't see yours? Request your university →
-          </button>
-        </div>
-      </div>
-    </section>
+      {/* Global Request Course Popup Instance */}
+      <RequestCoursePopup isOpen={isRequestPopupOpen} onClose={() => setIsRequestPopupOpen(false)} />
+    </>
   );
 }

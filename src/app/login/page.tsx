@@ -1,147 +1,226 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAppDispatch } from '@/store/hooks';
-import { setAuth } from '@/store/slices/appSlice';
+import React, { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAppDispatch } from "@/store/hooks";
+import { setAuth } from "@/store/slices/appSlice";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import api from "@/services/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  // Form State
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  // --- FORM STATE ---
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Handle Local Login Submission
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+
+  // --- HANDLERS ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
-      // Professionally using the environment variable with a fallback
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-      
-      const res = await fetch(`${apiUrl}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // --- CRITICAL FIX: MUST INCLUDE CREDENTIALS FOR HTTP-ONLY COOKIES ---
-        credentials: 'include', 
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
+      const { data } = await api.post("/auth/login", { email, password });
       dispatch(setAuth(data.user));
-      router.push('/classroom'); 
+      router.push("/classroom");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.message || "Login failed");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleGoogleAuth = () => {
+    window.location.href = `${apiUrl}/auth/google`;
+  };
+
   return (
-    // Cleaned up the outer wrapper: Just a full screen flex container now
-    <div className="min-h-screen w-full flex bg-neutral-50">
-      
-      {/* LEFT SIDE: Form Container */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 z-10">
-        <div className="w-full max-w-md p-8 rounded-xl shadow-[inset_-2px_-3px_22px_rgba(255,206,101,0.20),inset_2px_3px_3px_rgba(255,99,49,0.15)] outline outline-[1px] outline-zinc-200 bg-white flex flex-col gap-8">
-          
-          <div className="flex flex-col gap-2">
-            <h1 className="text-stone-950 text-3xl font-libre font-normal leading-tight">
-              Welcome back!
-            </h1>
-            <p className="text-zinc-600 text-base font-helvena">
-              Catch up on the course.
-            </p>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-100 text-red-600 text-sm rounded-lg font-medium">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              <label className="text-zinc-500 text-sm font-helvena">Email</label>
-              <input 
-                type="email" 
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="sachin@example.com"
-                className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-zinc-500 text-sm font-helvena">Password</label>
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full h-11 p-3 bg-white rounded-lg outline outline-[1px] outline-zinc-300 focus:outline-[#FE6100] transition-all text-stone-900 font-helvena"
-              />
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full h-11 mt-2 bg-gradient-to-r from-[#FE6100] to-[#FC3500] rounded-lg text-white text-sm font-medium hover:shadow-lg hover:opacity-90 transition-all disabled:opacity-50"
-            >
-              {isLoading ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
-
-          <div className="flex flex-col gap-4">
-            <button 
-              type="button"
-              className="w-full h-11 p-2 bg-white rounded-lg outline outline-1 outline-zinc-300 flex justify-center items-center gap-3 hover:bg-zinc-50 transition-colors"
-            >
-              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-              <span className="text-stone-950 text-sm font-medium font-helvena">
-                Continue with Google
-              </span>
-            </button>
-
-            <div className="text-center mt-2">
-              <span className="text-zinc-800 text-sm font-helvena">No account? </span>
-              <Link href="/register" className="text-[#FE6100] text-sm font-semibold hover:underline">
-                Create one
-              </Link>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <span className="text-zinc-500 text-xs font-helvena">
-              By continuing, you agree to our <span className="font-medium text-zinc-700 cursor-pointer hover:underline">Terms</span> and <span className="font-medium text-zinc-700 cursor-pointer hover:underline">Privacy Policy</span>.
-            </span>
-          </div>
-        </div>
+    // Fixed overlay layout perfectly hides the global layout footer and navbar
+    <div className="fixed inset-0 z-50 w-full flex bg-neutral-100 overflow-hidden font-['Helvena']">
+      {/* MOBILE LOGO (Visible only on smaller screens, positioned cleanly away from form) */}
+      <div className="absolute top-6 left-6 z-50 lg:hidden">
+        <Link href="/">
+          <img
+            src="/logo-dark-text.svg"
+            alt="Edvara"
+            className="h-8 transition-opacity hover:opacity-80"
+          />
+        </Link>
       </div>
 
-      {/* RIGHT SIDE: Big Logo Panel */}
-      <div className="hidden lg:flex w-1/2 bg-[#161616] shadow-2xl flex-col justify-center items-center relative z-20">
-        <img 
-          src="/logo-light-text.svg" 
-          alt="Edvara Logo Big" 
-          className="w-96 h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-700"
+      {/* --- LEFT SIDE: Branding Panel (Hidden on Mobile) --- */}
+      <div className="hidden lg:flex w-[45%] xl:w-[40%] bg-[#FE6100] shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] flex-col justify-between items-start pt-14 px-14 relative z-10 overflow-hidden">
+        <div className="flex flex-col gap-10 z-20">
+          <Link href="/">
+            <img
+              src="/whitelogoforbentogrid.svg"
+              alt="Edvara"
+              className="w-32 h-auto hover:opacity-90 transition-opacity"
+            />
+          </Link>
+          <h2 className="text-white text-5xl xl:text-6xl font-normal font-['Libre_Baskerville'] leading-tight italic">
+            Padhai bhi, <br />
+            placement bhi.
+          </h2>
+        </div>
+        <img
+          src="/sachinHero.png"
+          alt="Mentor"
+          className="w-full max-w-[600px] xl:max-w-[750px] object-contain object-bottom self-center mt-auto z-10"
         />
       </div>
 
+      {/* --- RIGHT SIDE: Interactive Form Container --- */}
+      <div className="flex-1 flex flex-col p-5 sm:p-10 relative z-20 h-full overflow-y-auto no-scrollbar">
+        {/* Form Wrapper */}
+        <div className="flex-1 flex flex-col justify-center items-center w-full max-w-[500px] mx-auto mt-16 lg:mt-0 pb-10 lg:pb-0">
+          <div className="w-full flex flex-col items-center gap-6">
+            {/* Header */}
+            <div className="flex flex-col justify-center items-center w-full mb-2">
+              <h2 className="text-center text-[#FE6100] text-xl sm:text-3xl font-normal font-['Libre_Baskerville'] italic leading-tight">
+                Welcome Aboard!
+              </h2>
+              <h1 className="text-center text-neutral-950 text-2xl sm:text-4xl font-medium font-['Helvena']">
+                Begin your journey today.
+              </h1>
+            </div>
+
+            {/* Global Error Banner */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="w-full p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium text-center"
+                >
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Google Auth Button */}
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={handleGoogleAuth}
+              className="w-full h-12 bg-white rounded-full outline outline-1 outline-neutral-300 flex justify-center items-center gap-3 hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <img
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                alt="Google"
+                className="w-5 h-5"
+              />
+              <span className="text-stone-950 text-sm font-medium font-['Helvena']">
+                Sign up with Google
+              </span>
+            </button>
+
+            {/* Divider */}
+            <div className="w-full flex justify-center items-center gap-6 my-2">
+              <div className="flex-1 h-[1px] bg-gray-300"></div>
+              <span className="text-black text-base font-medium font-['Helvena']">
+                or
+              </span>
+              <div className="flex-1 h-[1px] bg-gray-300"></div>
+            </div>
+
+            {/* Form Elements */}
+            <form
+              onSubmit={handleLogin}
+              className="w-full flex flex-col gap-4 sm:gap-5"
+            >
+              {/* Email */}
+              <div className="flex flex-col gap-1.5 sm:gap-2">
+                <label className="text-black text-sm font-medium font-['Helvena']">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  disabled={isLoading}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="example@edvara.com"
+                  className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
+                />
+              </div>
+
+              {/* Password */}
+              <div className="flex flex-col gap-1.5 sm:gap-2">
+                <div className="w-full flex justify-between items-center">
+                  <label className="text-black text-sm font-medium font-['Helvena']">
+                    Password
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-[#FE6100] text-xs font-medium hover:underline"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    disabled={isLoading}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="********"
+                    className="w-full h-11 pl-3 pr-10 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-12 mt-2 bg-neutral-950 rounded-lg shadow-lg flex justify-center items-center gap-2 hover:bg-neutral-800 transition-all disabled:opacity-70 group"
+              >
+                <span className="text-white text-sm font-medium font-['Helvena'] leading-5">
+                  {isLoading ? "Logging in..." : "Continue"}
+                </span>
+                <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+              </button>
+            </form>
+
+            {/* Register Link */}
+            <div className="text-center mt-2">
+              <span className="text-neutral-950 text-sm font-medium font-['Helvena']">
+                New user?{" "}
+              </span>
+              <Link
+                href="/register"
+                className="text-[#FE6100] text-sm font-medium font-['Helvena'] hover:underline"
+              >
+                Create Account
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
