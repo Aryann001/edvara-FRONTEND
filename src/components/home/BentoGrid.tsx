@@ -101,8 +101,9 @@ const BentoGrid = () => {
               <div className="flex items-center h-10 relative">
                 <div className={`absolute left-0 right-0 h-[2px] ${lineTheme} z-0`} />
                 <div className="flex -space-x-2 md:-space-x-3 relative z-10">
-                   {[1,2,3,4].map((i) => (
-                     <div key={i} className={`w-7 h-7 md:w-10 md:h-10 rounded-full border-2 ${isCoding ? 'border-stone-900' : 'border-white'} bg-neutral-200`} />
+                   {[1,2,3,4].map((student, i) => (
+                     <img src={`/students/s${student}.png`}
+                          alt={`Student ${student}`} key={i} className={`w-7 h-7 md:w-10 md:h-10 rounded-full border-2 ${isCoding ? 'border-stone-900' : 'border-white'} bg-neutral-200`} />
                    ))}
                 </div>
               </div>

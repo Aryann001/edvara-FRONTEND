@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +12,10 @@ export default function CreateCoursePage() {
   const router = useRouter();
   const isCoding = useAppSelector((state) => state.app.isCodingDomain);
 
+  // --- Dynamic University Data ---
+  const [universities, setUniversities] = useState<any[]>([]);
+  const [selectedUni, setSelectedUni] = useState<any>(null); // Holds the full object to access branches
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -22,8 +26,8 @@ export default function CreateCoursePage() {
     mentorDescription: '',
     category: '',
     level: 'beginner',
-    universityName: '',
-    semester: '',
+    university: '', // Changed from universityName to match schema
+    semester: '1',
     branch: '',
   });
   
@@ -31,8 +35,36 @@ export default function CreateCoursePage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fetch Universities on Mount
+  useEffect(() => {
+    const fetchUnis = async () => {
+      try {
+        const { data } = await api.get('/universities');
+        if (data.success) {
+          setUniversities(data.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch universities", err);
+      }
+    };
+    fetchUnis();
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleUniversitySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const uniId = e.target.value;
+    const uni = universities.find(u => u._id === uniId);
+    setSelectedUni(uni || null);
+    
+    // Reset branch when university changes, but set it to the first available branch if possible
+    setFormData({ 
+      ...formData, 
+      university: uniId, 
+      branch: uni && uni.branches?.length > 0 ? uni.branches[0] : '' 
+    });
   };
 
   const handleDomainSelect = (selectedDomain: 'coding' | 'university') => {
@@ -58,7 +90,12 @@ export default function CreateCoursePage() {
       payload.append('category', formData.category);
       payload.append('level', formData.level);
     } else {
-      payload.append('universityName', formData.universityName);
+      if (!formData.university || !formData.branch) {
+        setError('Please select a university and a branch.');
+        setIsSubmitting(false);
+        return;
+      }
+      payload.append('university', formData.university); // Passes _id
       payload.append('semester', String(Number(formData.semester)));
       payload.append('branch', formData.branch);
     }
@@ -68,6 +105,7 @@ export default function CreateCoursePage() {
     }
 
     try {
+      // Axios will handle the Content-Type boundary automatically for FormData
       const { data } = await api.post('/courses', payload);
       router.push(`/dashboard/courses/${data.data._id}`); 
     } catch (err: any) {
@@ -149,18 +187,60 @@ export default function CreateCoursePage() {
                   </div>
                 </motion.div>
               ) : (
-                <motion.div key="uni" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+                <motion.div key="uni" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2 overflow-visible">
+                  
+                  {/* DYNAMIC UNIVERSITY SELECT */}
                   <div className="flex flex-col gap-2 sm:col-span-3">
-                    <label className={`text-xs uppercase tracking-wider ${subTextColor}`}>University Name</label>
-                    <input type="text" name="universityName" required placeholder="e.g. RGPV" value={formData.universityName} onChange={handleInputChange} className={`h-11 px-4 rounded-lg border outline-none font-['Helvena'] text-sm transition-all ${inputBg}`} />
+                    <div className="flex justify-between items-end">
+                      <label className={`text-xs uppercase tracking-wider ${subTextColor}`}>University</label>
+                      <Link href="/dashboard/universities" className="text-[10px] text-[#FE6100] hover:underline">Manage Universities</Link>
+                    </div>
+                    <select 
+                      name="university" 
+                      required 
+                      value={formData.university} 
+                      onChange={handleUniversitySelect} 
+                      className={`h-11 px-4 rounded-lg border outline-none font-['Helvena'] text-sm transition-all ${inputBg}`}
+                    >
+                      <option value="" disabled>Select a University</option>
+                      {universities.map(uni => (
+                        <option key={uni._id} value={uni._id}>{uni.name} ({uni.location})</option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* CASCADING BRANCH SELECT */}
                   <div className="flex flex-col gap-2 sm:col-span-2">
                     <label className={`text-xs uppercase tracking-wider ${subTextColor}`}>Branch</label>
-                    <input type="text" name="branch" required placeholder="e.g. CSE" value={formData.branch} onChange={handleInputChange} className={`h-11 px-4 rounded-lg border outline-none font-['Helvena'] text-sm transition-all ${inputBg}`} />
+                    <select 
+                      name="branch" 
+                      required 
+                      disabled={!selectedUni || selectedUni.branches?.length === 0}
+                      value={formData.branch} 
+                      onChange={handleInputChange} 
+                      className={`h-11 px-4 rounded-lg border outline-none font-['Helvena'] text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${inputBg}`}
+                    >
+                      <option value="" disabled>Select a Branch</option>
+                      {selectedUni?.branches?.map((b: string) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* FIXED SEMESTER SELECT */}
                   <div className="flex flex-col gap-2">
                     <label className={`text-xs uppercase tracking-wider ${subTextColor}`}>Semester</label>
-                    <input type="number" name="semester" required min="1" max="8" value={formData.semester} onChange={handleInputChange} className={`h-11 px-4 rounded-lg border outline-none font-['Helvena'] text-sm transition-all ${inputBg}`} />
+                    <select 
+                      name="semester" 
+                      required 
+                      value={formData.semester} 
+                      onChange={handleInputChange} 
+                      className={`h-11 px-4 rounded-lg border outline-none font-['Helvena'] text-sm transition-all ${inputBg}`}
+                    >
+                      {[1,2,3,4,5,6,7,8].map(num => (
+                        <option key={num} value={num}>Sem {num}</option>
+                      ))}
+                    </select>
                   </div>
                 </motion.div>
               )}

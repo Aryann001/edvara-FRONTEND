@@ -12,11 +12,41 @@ interface Testimonial {
 }
 
 const testimonials: Testimonial[] = [
-  { name: "John Doe", role: "CEO & Founder", text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Ipsa, eveniet inventore!" },
-  { name: "Sarah Smith", role: "Engineering Lead", text: "Exceptional platform! It really transformed how we approach our semester studies." },
-  { name: "Alex Rivera", role: "UI Designer", text: "The university-specific content is a lifesaver. Finally, something that matches my syllabus." },
-  { name: "Emily Chen", role: "Student", text: "Beautifully designed and incredibly intuitive to use. Highly recommended for all students." },
-  { name: "Michael Park", role: "Full Stack Dev", text: "Finally, a resource that understands the Indian engineering curriculum perfectly." },
+  { 
+    name: "Vivek Awasthi", 
+    role: "RGPV Student", 
+    text: "Your way of teaching is better than many experienced teachers. Truly the best resource for RGPV students—it feels like having a placement mentor without the massive college fees. Aur kya chahiye!" 
+  },
+  { 
+    name: "Sunil Kakodiya", 
+    role: "Engineering Student", 
+    text: "This content is incredibly helpful. I've been studying without much guidance, and your teaching style is simple yet impactful. Thank you so much for the clarity." 
+  },
+  { 
+    name: "Car X Flex", 
+    role: "Tech Enthusiast", 
+    text: "Sir, where have you been? Your teaching style is amazing and the content is actually updated. Easily one of the best teachers I've found online." 
+  },
+  { 
+    name: "Isu Hope", 
+    role: "Computer Science Student", 
+    text: "Thank you so much for your hard work and support, Bhaiya! The effort you put into helping us understand these concepts really shows." 
+  },
+  { 
+    name: "Study KK", 
+    role: "JUT Jharkhand Student", 
+    text: "I'm from Jharkhand University of Technology and I just wanted to say thank you! The concepts are finally crystal clear now." 
+  },
+  { 
+    name: "Abhishek Singh", 
+    role: "Engineering Aspirant", 
+    text: "Thank you, Sir! Please keep helping us students like this. Your guidance makes a huge difference in our preparation." 
+  },
+  { 
+    name: "Yuti Mishra", 
+    role: "3rd Sem Student", 
+    text: "Thank you so much, Bhaiya! You teach so well. I got so much help for my 3rd-semester exams through your videos." 
+  }
 ];
 
 interface MarqueeProps {
@@ -59,8 +89,8 @@ function MarqueeRow({ items, direction = 1, baseVelocity = 5, isCoding }: Marque
           <div key={i} className={`w-72 md:w-96 p-4 md:p-6 ${isCoding ? 'bg-stone-950 border-white/5' : 'bg-white border-gray-100'} rounded-xl inline-flex flex-col justify-center items-start gap-4 md:gap-8 shadow-sm border shrink-0 select-none`}>
             <div className="self-stretch inline-flex justify-between items-start">
               <div className="flex justify-start items-start gap-3 md:gap-4">
-                <div className="w-9 h-9 md:w-12 md:h-12 rounded-full bg-neutral-200 shrink-0 overflow-hidden">
-                   <img src={`https://placehold.co/48x48?text=${item.name[0]}`} alt={item.name} className="w-full h-full object-cover" />
+                <div className="w-9 h-9 md:w-12 md:h-12 rounded-full bg-[#FE6100] shrink-0 overflow-hidden">
+                   <img src={`/logo.svg`} alt={item.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="inline-flex flex-col justify-start items-start">
                   <div className={`justify-center ${isCoding ? 'text-white' : 'text-neutral-950'} text-sm md:text-lg font-medium font-['Helvena'] leading-tight md:leading-6`}>{item.name}</div>
@@ -74,7 +104,7 @@ function MarqueeRow({ items, direction = 1, baseVelocity = 5, isCoding }: Marque
               </div>
             </div>
             <div className={`self-stretch justify-center ${isCoding ? 'text-white/70' : 'text-gray-600'} text-sm md:text-base font-medium font-['Helvena'] leading-5 md:leading-6 whitespace-normal`}>
-              &quot;{item.text}&quot;
+              &quot;{item.text.length > 110 ? `${item.text.substring(0, 110)}...` : item.text}&quot;
             </div>
           </div>
         ))}

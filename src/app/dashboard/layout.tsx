@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Users, BookOpen, Ticket, Megaphone, Settings, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Ticket, Megaphone, Settings, Menu, X, Building2 } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = [
     { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Universities', path: '/dashboard/universities', icon: Building2 }, // <-- NEW
     { name: 'Courses', path: '/dashboard/courses', icon: BookOpen },
     { name: 'Students', path: '/dashboard/students', icon: Users },
     { name: 'Coupons', path: '/dashboard/coupons', icon: Ticket },
@@ -55,7 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
       </AnimatePresence>
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR (Original Sizing Restored) */}
       <motion.aside 
         initial={false}
         animate={{ x: isMobileMenuOpen ? 0 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : -300) }}
@@ -69,10 +70,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
         
-        <nav className="flex-1 flex flex-col gap-2">
+        {/* Added overflow-y-auto to handle smaller screens gracefully */}
+        <nav className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
+            
+            // --- EXACT MATCH LOGIC FOR OVERVIEW FIX ---
+            const isActive = item.path === '/dashboard' 
+              ? pathname === '/dashboard' 
+              : pathname === item.path || pathname.startsWith(`${item.path}/`);
             
             return (
               <Link key={item.name} href={item.path}>
@@ -86,7 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
       </motion.aside>
 
-      {/* MAIN CONTENT AREA */}
+      {/* MAIN CONTENT AREA (Original Sizing Restored) */}
       <main className="flex-1 w-full lg:ml-64 p-5 sm:p-8 pt-[140px] lg:pt-[120px] min-h-screen relative z-10">
         {children}
       </main>

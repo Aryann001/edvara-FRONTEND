@@ -8,7 +8,7 @@ export default function HeroSection() {
   const isCoding = useAppSelector((state) => state.app.isCodingDomain);
 
   // Your 8 university logos from the public folder
-  const universityLogos = ["01", "02", "03", "04", "05", "06", "07", "08"];
+  const universityLogos = isCoding ? ["09", "10", "11", "12", "13", "14", "15"] : ["01", "02", "03", "04", "05", "06", "07", "08"];
 
   // Theme Constants
   const themeBg = isCoding ? "bg-[#161616]" : "bg-neutral-100";
@@ -157,7 +157,7 @@ export default function HeroSection() {
                       >
                         <img
                           className="w-10 h-10 rounded-full bg-gray-200 object-cover"
-                          src={`https://placehold.co/40x40?text=${student}`}
+                          src={`/students/s${student}.png`}
                           alt={`Student ${student}`}
                         />
                       </div>

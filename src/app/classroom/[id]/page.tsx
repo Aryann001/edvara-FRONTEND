@@ -7,7 +7,8 @@ import { useAppSelector } from '@/store/hooks';
 import api from '@/services/api';
 import { 
   PlayCircle, CheckCircle2, Lock, ChevronDown, ChevronUp, 
-  FileText, Eye, Download, Loader2, AlertCircle, Maximize, Settings, SkipForward
+  FileText, Download, Loader2, AlertCircle, Maximize, Settings, 
+  Play, Pause, Volume2, VolumeX, Gauge
 } from 'lucide-react';
 
 export default function CoursePlayerPage() {
@@ -21,27 +22,111 @@ export default function CoursePlayerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Custom Toast State
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
+
+  // Enrollment & Progress State
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [completedLectures, setCompletedLectures] = useState<string[]>([]);
+
   // Player States
   const [activeLecture, setActiveLecture] = useState<any>(null);
+  const [obfuscatedVideoUrl, setObfuscatedVideoUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'notes' | 'pyqs'>('content');
   const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>({});
-  const [watermark, setWatermark] = useState({ top: '10%', left: '10%', visible: false, trace: null as any });
+  
+  // Anti-Piracy Watermark State (Split into ID and IP/Loc)
+  const [watermarkId, setWatermarkId] = useState({ top: '10%', left: '10%', scale: 1, visible: false, trace: null as any });
+  const [watermarkIp, setWatermarkIp] = useState({ top: '80%', left: '80%', scale: 1, visible: false });
+  
+  // Stealth IP & Location Tracking
+  const [silentIp, setSilentIp] = useState<string>('Tracking...');
+  const [geoCoords, setGeoCoords] = useState<string>('Locating...');
+
+  // Custom Video Player States
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState('0:00');
+  const [duration, setDuration] = useState('0:00');
+  const [isMuted, setIsMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const tabsRef = useRef<HTMLDivElement>(null);
 
-  // Fetch Course & Syllabus
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+  };
+
+  // --- SILENT IP & GEO-LOCATION TRACKING (No Permissions Needed) ---
   useEffect(() => {
-    const fetchCourseData = async () => {
+    const fetchSilentLocation = async () => {
+      try {
+        const response = await fetch('https://ipinfo.io/json');
+        const data = await response.json();
+        
+        setSilentIp(data.ip || 'IP Hidden');
+        
+        if (data.loc) {
+          setGeoCoords(data.loc); // Returns "latitude,longitude"
+        } else {
+          setGeoCoords('Location Hidden');
+        }
+      } catch (err) {
+        setSilentIp('IP Hidden');
+        setGeoCoords('Location Hidden');
+      }
+    };
+    fetchSilentLocation();
+  }, []);
+
+  // --- 1. INITIAL DATA & ENROLLMENT FETCH ---
+  useEffect(() => {
+    if (!courseId) return;
+
+    const fetchCourseAndEnrollment = async () => {
       try {
         const { data } = await api.get(`/courses/${courseId}`);
         setCourse(data.data);
         
-        // Auto-expand first folder
+        let userIsEnrolled = false;
+        let completedIds: string[] = [];
+
+        if (user) {
+          try {
+            const { data: enrollData } = await api.get('/courses/my-enrollments');
+            if (enrollData.success) {
+              const currentEnrollment = enrollData.data.find((e: any) => 
+                e.course?._id === courseId || e.course === courseId
+              );
+              if (currentEnrollment) {
+                userIsEnrolled = true;
+                setIsEnrolled(true);
+                completedIds = currentEnrollment.completedLectures || [];
+                setCompletedLectures(completedIds);
+              }
+            }
+          } catch (e) {
+             console.error("Failed to check enrollment.");
+          }
+        }
+
         if (data.data.lectures && data.data.lectures.length > 0) {
           const firstFolder = data.data.lectures[0].folderName || 'General';
           setExpandedUnits({ [firstFolder]: true });
-          // Optionally auto-select first lecture
-          handleSelectLecture(data.data.lectures[0]);
+          
+          const firstUncompleted = data.data.lectures.find((l: any) => (l.isFree || userIsEnrolled) && !completedIds.includes(l._id));
+          const lectureToPlay = firstUncompleted || data.data.lectures.find((l: any) => l.isFree || userIsEnrolled);
+          
+          if (lectureToPlay) {
+             handleSelectLecture(lectureToPlay, userIsEnrolled);
+          }
         }
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to load course content.');
@@ -49,57 +134,294 @@ export default function CoursePlayerPage() {
         setIsLoading(false);
       }
     };
-    fetchCourseData();
-  }, [courseId]);
+    fetchCourseAndEnrollment();
+  }, [courseId, user]);
 
-  // Fetch individual lecture (Triggers Anti-Piracy Check)
-  const handleSelectLecture = async (lectureMeta: any) => {
-    if (!lectureMeta.isFree && !course.isEnrolled) {
-      // Basic check, actual validation happens on backend
-      // alert("Please enroll to watch this lecture.");
-      // return;
+  // --- RESPONSIVE TAB DEFAULTS ---
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setActiveTab('notes');
+      else setActiveTab('content');
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // --- 2. VIDEO URL OBFUSCATION LOGIC ---
+  const obfuscateVideo = async (realUrl: string) => {
+    try {
+      if (obfuscatedVideoUrl) URL.revokeObjectURL(obfuscatedVideoUrl);
+      const response = await fetch(realUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setObfuscatedVideoUrl(blobUrl);
+    } catch (error) {
+      console.error("Failed to obfuscate video, falling back to secure direct link.", error);
+      setObfuscatedVideoUrl(realUrl); 
+    }
+  };
+
+  // --- STRICT LECTURE SELECTION ---
+  const handleSelectLecture = async (lectureMeta: any, currentEnrollmentStatus: boolean = isEnrolled) => {
+    if (!lectureMeta.isFree && !currentEnrollmentStatus) {
+      showToast("This lecture is locked. Please enroll in the course to access it.", "error");
+      return;
     }
     
     try {
       const { data } = await api.get(`/lectures/${lectureMeta._id}`);
       if (data.success) {
         setActiveLecture(data.data);
-        setWatermark(prev => ({ ...prev, trace: data.trace })); // Save trace data for watermark
+        setWatermarkId(prev => ({ ...prev, trace: data.trace })); 
         
-        // On mobile, scroll up to player
+        if (data.data.videoUrl) {
+          await obfuscateVideo(data.data.videoUrl);
+        }
+
+        setIsPlaying(true);
+        setShowSettings(false); 
         if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to load video stream.');
+      showToast(err.response?.data?.message || 'Failed to load video stream. Please verify your enrollment.', 'error');
     }
   };
 
-  // Watermark randomizer logic
   useEffect(() => {
-    if (!activeLecture || !watermark.trace) return;
+    return () => {
+      if (obfuscatedVideoUrl) URL.revokeObjectURL(obfuscatedVideoUrl);
+    };
+  }, [obfuscatedVideoUrl]);
+
+  // --- ANTI-PIRACY & SCREEN RECORDING PREVENTION ---
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     
-    const interval = setInterval(() => {
-      const show = Math.random() > 0.6; 
-      if (show) {
-        setWatermark(prev => ({
-          ...prev,
-          top: `${Math.floor(Math.random() * 60) + 15}%`, 
-          left: `${Math.floor(Math.random() * 50) + 10}%`, 
-          visible: true
-        }));
-        setTimeout(() => setWatermark(prev => ({ ...prev, visible: false })), 3000);
+    const handleKeyDownSecurity = (e: KeyboardEvent) => {
+      if (
+        e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+        (e.ctrlKey && e.key === 'u') ||
+        e.key === 'PrintScreen'
+      ) {
+        e.preventDefault();
       }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [activeLecture, watermark.trace]);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && videoRef.current && isPlaying) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDownSecurity);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDownSecurity);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isPlaying]);
+
+  // --- SPLIT DYNAMIC WATERMARKS (Smooth & Cinematic) ---
+  useEffect(() => {
+    if (!activeLecture || !watermarkId.trace) return;
+    
+    // Watermark 1: The User ID (Triggers every 25 seconds)
+    const intervalId = setInterval(() => {
+      setWatermarkId(prev => ({
+        ...prev,
+        top: `${Math.floor(Math.random() * 80) + 10}%`, 
+        left: `${Math.floor(Math.random() * 80) + 10}%`, 
+        scale: Math.random() * 0.1 + 0.95,
+        visible: true
+      }));
+      
+      // Stays visible for 8 seconds
+      setTimeout(() => setWatermarkId(prev => ({ ...prev, visible: false })), 8000);
+    }, 25000); 
+
+    // Watermark 2: The User IP & Loc (Triggers every 35 seconds, offset from ID)
+    const intervalIp = setInterval(() => {
+      setWatermarkIp(prev => ({
+        ...prev,
+        top: `${Math.floor(Math.random() * 80) + 10}%`, 
+        left: `${Math.floor(Math.random() * 80) + 10}%`, 
+        scale: Math.random() * 0.1 + 0.95,
+        visible: true
+      }));
+      
+      // Stays visible for 8 seconds
+      setTimeout(() => setWatermarkIp(prev => ({ ...prev, visible: false })), 8000);
+    }, 35000);
+
+    return () => {
+      clearInterval(intervalId);
+      clearInterval(intervalIp);
+    };
+  }, [activeLecture, watermarkId.trace]);
+
+  // ==========================================
+  // CUSTOM VIDEO PLAYER LOGIC
+  // ==========================================
+  const formatTime = (timeInSeconds: number) => {
+    if (isNaN(timeInSeconds)) return '0:00';
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) videoRef.current.pause();
+      else videoRef.current.play();
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      const current = videoRef.current.currentTime;
+      const dur = videoRef.current.duration;
+      if (dur > 0) {
+        setProgress((current / dur) * 100);
+      }
+      setCurrentTime(formatTime(current));
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(formatTime(videoRef.current.duration));
+      videoRef.current.playbackRate = playbackRate; 
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const seekTime = (Number(e.target.value) / 100) * (videoRef.current?.duration || 0);
+    if (videoRef.current) {
+      videoRef.current.currentTime = seekTime;
+      setProgress(Number(e.target.value));
+    }
+  };
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!playerContainerRef.current) return;
+    if (!document.fullscreenElement) {
+      playerContainerRef.current.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1024 && activeTab === 'content') setActiveTab('notes');
+    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    const handlePlayerKeyDown = (e: KeyboardEvent) => {
+      if (!activeLecture) return;
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+
+      switch(e.key) {
+        case ' ':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          if (videoRef.current) videoRef.current.currentTime += 10;
+          break;
+        case 'ArrowLeft':
+          if (videoRef.current) videoRef.current.currentTime -= 10;
+          break;
+        case 'f':
+        case 'F':
+          toggleFullscreen();
+          break;
+        case 'm':
+        case 'M':
+          toggleMute();
+          break;
+      }
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [activeTab]);
+    window.addEventListener('keydown', handlePlayerKeyDown);
+    return () => window.removeEventListener('keydown', handlePlayerKeyDown);
+  }, [activeLecture, isPlaying, isMuted]);
+
+  const handleMouseMove = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        if (!showSettings) { 
+          setShowControls(false);
+        }
+      }, 3000);
+    }
+  };
+
+  const handlePlaybackRateChange = (rate: number) => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+      setPlaybackRate(rate);
+      setShowSettings(false);
+    }
+  };
+
+  // --- PROGRESS TRACKING & AUTONEXT INTEGRATION ---
+  const handleVideoEnd = async () => {
+    setIsPlaying(false);
+    setShowControls(true);
+    
+    let updatedCompleted = [...completedLectures];
+
+    // 1. Save Progress
+    if (isEnrolled && activeLecture) {
+      try {
+        const { data } = await api.post(`/courses/${courseId}/progress`, { lectureId: activeLecture._id });
+        if (data.success) {
+          updatedCompleted = data.completedLectures || [];
+          setCompletedLectures(updatedCompleted);
+        }
+      } catch (err) {
+        console.error("Failed to save progress", err);
+      }
+    }
+
+    // 2. Autoplay Next Logic
+    if (course && course.lectures && activeLecture) {
+      const currentIndex = course.lectures.findIndex((l: any) => l._id === activeLecture._id);
+      
+      if (currentIndex !== -1 && currentIndex < course.lectures.length - 1) {
+        const nextLecture = course.lectures[currentIndex + 1];
+        
+        if (nextLecture.isFree || isEnrolled) {
+          if (nextLecture.folderName !== activeLecture.folderName) {
+            setExpandedUnits(prev => ({ ...prev, [nextLecture.folderName || 'General']: true }));
+          }
+          
+          setTimeout(() => {
+            handleSelectLecture(nextLecture);
+          }, 2000);
+        }
+      }
+    }
+  };
 
   const toggleUnit = (folder: string) => {
     setExpandedUnits(prev => ({ ...prev, [folder]: !prev[folder] }));
@@ -112,8 +434,24 @@ export default function CoursePlayerPage() {
   const cardBg = isCoding ? "bg-[#1C1C1C] border border-white/10 shadow-lg" : "bg-white shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-gray-100";
   const innerBg = isCoding ? "bg-white/5" : "bg-neutral-100";
 
+  // --- SKELETON LOADER ---
   if (isLoading) {
-    return <div className={`min-h-screen w-full flex justify-center items-center ${bgTheme}`}><Loader2 className="w-10 h-10 text-[#FE6100] animate-spin" /></div>;
+    const pulseBg = isCoding ? "bg-white/5" : "bg-gray-200";
+    return (
+      <div className={`min-h-screen w-full pt-[100px] lg:pt-[130px] pb-14 flex justify-center ${bgTheme} font-['Helvena'] transition-colors duration-500`}>
+        <div className="w-full max-w-[1440px] px-4 md:px-8 lg:px-12 xl:px-20 flex flex-col lg:flex-row items-start gap-8 animate-pulse">
+          <div className="flex-1 w-full flex flex-col gap-6">
+            <div className={`w-full aspect-video rounded-xl ${pulseBg}`} />
+            <div className={`w-3/4 h-8 rounded-md ${pulseBg}`} />
+            <div className={`w-1/2 h-4 rounded-md ${pulseBg}`} />
+          </div>
+          <div className="hidden lg:flex w-[400px] flex-col gap-4 shrink-0">
+            <div className={`w-full h-12 rounded-lg ${pulseBg}`} />
+            <div className={`w-full h-64 rounded-xl ${pulseBg}`} />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error || !course) {
@@ -127,7 +465,6 @@ export default function CoursePlayerPage() {
     );
   }
 
-  // Group lectures
   const groupedLectures = course.lectures?.reduce((acc: any, lecture: any) => {
     const folder = lecture.folderName || 'General';
     if (!acc[folder]) acc[folder] = [];
@@ -136,7 +473,7 @@ export default function CoursePlayerPage() {
   }, {}) || {};
 
   const CourseContentBlock = () => (
-    <div className={`w-full rounded-md overflow-hidden flex flex-col ${borderTheme}`}>
+    <div className={`w-full rounded-md overflow-hidden flex flex-col ${borderTheme} border outline outline-1 outline-offset-[-1px] ${isCoding ? 'outline-white/10' : 'outline-gray-200'}`}>
       {Object.keys(groupedLectures).map((folderName, index) => {
         const lectures = groupedLectures[folderName];
         return (
@@ -157,7 +494,8 @@ export default function CoursePlayerPage() {
                 >
                   {lectures.map((lecture: any) => {
                     const isActive = activeLecture?._id === lecture._id;
-                    const isLocked = !lecture.isFree && !course.isEnrolled;
+                    const isLocked = !lecture.isFree && !isEnrolled; 
+                    const isCompleted = completedLectures.includes(lecture._id);
 
                     return (
                       <div 
@@ -167,10 +505,20 @@ export default function CoursePlayerPage() {
                       >
                         <div className="flex-1 flex items-start gap-3">
                           <div className="mt-0.5 shrink-0">
-                            {isActive ? <PlayCircle className="w-4 h-4 text-[#FE6100] fill-[#FE6100]/20" /> : isLocked ? <Lock className={`w-4 h-4 ${textSub}`} /> : <PlayCircle className={`w-4 h-4 ${textSub}`} />}
+                            {isActive ? (
+                              <PlayCircle className="w-4 h-4 text-[#FE6100] fill-[#FE6100]/20" />
+                            ) : isLocked ? (
+                              <Lock className={`w-4 h-4 ${textSub}`} />
+                            ) : isCompleted ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <PlayCircle className={`w-4 h-4 ${textSub}`} />
+                            )}
                           </div>
                           <div className="flex flex-col gap-1">
-                            <span className={`${textMain} text-sm font-medium line-clamp-2`}>{lecture.title}</span>
+                            <span className={`${textMain} text-sm font-medium line-clamp-2 ${isLocked ? 'opacity-50' : ''} ${isCompleted && !isActive ? 'opacity-70' : ''}`}>
+                              {lecture.title}
+                            </span>
                             {isActive && <span className={`${textSub} text-xs font-normal`}>Now Playing • {lecture.duration || 0} mins</span>}
                           </div>
                         </div>
@@ -188,42 +536,170 @@ export default function CoursePlayerPage() {
 
   return (
     <div className={`min-h-screen w-full pt-[100px] lg:pt-[130px] pb-14 flex justify-center ${bgTheme} font-['Helvena'] transition-colors duration-500`}>
+      
+      {/* TOAST NOTIFICATION */}
+      <AnimatePresence>
+        {toast.show && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className={`fixed bottom-8 right-8 sm:bottom-12 sm:right-12 z-[100] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border ${
+              toast.type === 'error' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+            }`}
+          >
+            {toast.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
+            <span className="font-medium">{toast.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="w-full max-w-[1440px] px-4 md:px-8 lg:px-12 xl:px-20 flex flex-col lg:flex-row items-start gap-8">
         
         {/* LEFT COLUMN: PLAYER */}
         <div className="flex-1 w-full flex flex-col gap-6 lg:gap-8">
           
-          <div className="w-full relative bg-black rounded-xl overflow-hidden aspect-video shadow-lg group">
+          {/* ADVANCED CUSTOM VIDEO PLAYER */}
+          <div 
+            ref={playerContainerRef}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => {
+              if (isPlaying && !showSettings) setShowControls(false);
+            }}
+            className="w-full relative bg-black rounded-xl overflow-hidden aspect-video shadow-lg group flex flex-col justify-center items-center"
+          >
             {activeLecture ? (
-              <video 
-                src={activeLecture.videoUrl} 
-                controls controlsList="nodownload"
-                className="w-full h-full object-cover"
-                autoPlay
-              />
+              <>
+                <video 
+                  ref={videoRef}
+                  src={obfuscatedVideoUrl || activeLecture.videoUrl} 
+                  onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onEnded={handleVideoEnd}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onClick={() => {
+                    if (showSettings) setShowSettings(false);
+                    else togglePlay();
+                  }}
+                  controlsList="nodownload nofullscreen noremoteplayback"
+                  disablePictureInPicture
+                  className="w-full h-full object-cover cursor-pointer"
+                  autoPlay
+                />
+                
+                {/* Custom Controls Overlay */}
+                <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
+                  
+                  {/* Scrubber */}
+                  <div className="w-full flex items-center mb-4">
+                    <input 
+                      type="range" min="0" max="100" value={progress}
+                      onChange={handleSeek}
+                      className="w-full h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-[#FE6100]"
+                      style={{ background: `linear-gradient(to right, #FE6100 ${progress}%, rgba(255,255,255,0.3) ${progress}%)` }}
+                    />
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex justify-between items-center text-white relative">
+                    
+                    <div className="flex items-center gap-5">
+                      <button onClick={togglePlay} className="hover:text-[#FE6100] transition-colors focus:outline-none">
+                        {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
+                      </button>
+                      
+                      <button onClick={toggleMute} className="hover:text-[#FE6100] transition-colors focus:outline-none">
+                        {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                      </button>
+                      
+                      <span className="text-xs sm:text-sm font-medium tracking-wider opacity-90 hidden sm:block">
+                        {currentTime} <span className="opacity-50 mx-1">/</span> {duration}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-5 relative">
+                      
+                      {/* Settings Menu Popup */}
+                      <AnimatePresence>
+                        {showSettings && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute bottom-full right-10 mb-4 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg p-2 min-w-[140px] flex flex-col gap-1 z-50"
+                          >
+                            <div className="px-3 py-2 text-xs text-white/50 uppercase tracking-wider font-semibold border-b border-white/10 mb-1 flex items-center gap-2">
+                              <Gauge className="w-3 h-3" /> Speed
+                            </div>
+                            {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                              <button 
+                                key={rate} 
+                                onClick={() => handlePlaybackRateChange(rate)}
+                                className={`w-full text-left px-3 py-2 text-sm rounded transition-colors ${playbackRate === rate ? 'bg-[#FE6100]/20 text-[#FE6100] font-medium' : 'text-white hover:bg-white/10'}`}
+                              >
+                                {rate === 1 ? 'Normal' : `${rate}x`}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <button 
+                        onClick={() => setShowSettings(!showSettings)} 
+                        className={`transition-colors focus:outline-none ${showSettings ? 'text-[#FE6100]' : 'text-white opacity-80 hover:opacity-100'}`}
+                      >
+                        <Settings className="w-5 h-5" />
+                      </button>
+
+                      <button onClick={toggleFullscreen} className="hover:text-[#FE6100] transition-colors focus:outline-none opacity-80 hover:opacity-100">
+                        <Maximize className="w-5 h-5" />
+                      </button>
+
+                    </div>
+                  </div>
+                </div>
+
+                {/* Secure Watermark Overlay 1: ID */}
+                <AnimatePresence>
+                  {watermarkId.visible && watermarkId.trace && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95 }} 
+                      animate={{ opacity: 1, scale: watermarkId.scale }} 
+                      exit={{ opacity: 0, scale: 1.05 }}
+                      transition={{ ease: "easeInOut", duration: 2 }}
+                      style={{ top: watermarkId.top, left: watermarkId.left }}
+                      className="absolute z-10 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
+                    >
+                      <span className="text-white text-xs md:text-sm font-mono tracking-widest px-2 py-1 rounded">
+                        ID: {watermarkId.trace.viewerId || user?._id || user?.id || 'GUEST'}
+                      </span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Secure Watermark Overlay 2: IP & Loc */}
+                <AnimatePresence>
+                  {watermarkIp.visible && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95 }} 
+                      animate={{ opacity: 1, scale: watermarkIp.scale }} 
+                      exit={{ opacity: 0, scale: 1.05 }}
+                      transition={{ ease: "easeInOut", duration: 2 }}
+                      style={{ top: watermarkIp.top, left: watermarkIp.left }}
+                      className="absolute z-10 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
+                    >
+                      <span className="text-white text-[10px] md:text-xs font-mono tracking-widest px-2 py-1 rounded flex flex-col items-center gap-0.5">
+                        <span>IP: {silentIp}</span>
+                        <span>LOC: {geoCoords}</span>
+                      </span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-500">
+              <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-500 relative">
                 <PlayCircle className="w-12 h-12 mb-2 opacity-50" />
                 <p>Select a lecture from the syllabus to start</p>
+                <Lock className="w-40 h-40 absolute opacity-5 pointer-events-none" />
               </div>
             )}
-            
-            <AnimatePresence>
-              {watermark.visible && watermark.trace && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                  style={{ top: watermark.top, left: watermark.left }}
-                  className="absolute z-10 pointer-events-none select-none flex flex-col justify-center items-center opacity-40 mix-blend-overlay"
-                >
-                  <span className="text-white text-xs md:text-sm font-mono tracking-widest bg-black/40 px-2 py-1 rounded">
-                    ID: {watermark.trace.viewerId}
-                  </span>
-                  <span className="text-white text-[10px] md:text-xs font-mono tracking-widest bg-black/40 px-2 py-1 rounded mt-1">
-                    IP: {watermark.trace.viewerIp}
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           {/* Metadata */}
@@ -268,41 +744,59 @@ export default function CoursePlayerPage() {
 
               {activeTab === 'notes' && (
                 <motion.div key="notes-tab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full flex flex-col gap-4">
-                  {course.notes?.map((note: any) => (
-                    <div key={note._id} className={`w-full p-4 rounded-md outline outline-1 flex justify-between items-center ${isCoding ? 'bg-white/5 outline-white/10' : 'bg-white outline-slate-200'}`}>
-                      <div className="flex items-center gap-3">
-                        <FileText className="text-blue-500" size={20} />
-                        <div>
-                          <p className={`${textMain} text-sm font-medium`}>{note.title}</p>
-                          <p className={`${textSub} text-xs mt-0.5`}>{note.fileSize || 'PDF Document'}</p>
+                  <div className={`p-4 rounded-xl border ${borderTheme} ${isCoding ? 'bg-[#1C1C1C]' : 'bg-white'} shadow-sm`}>
+                    <h3 className={`${textMain} text-lg font-semibold mb-4`}>Class Notes</h3>
+                    <div className="flex flex-col gap-3">
+                      {course.notes?.map((note: any) => (
+                        <div key={note._id} className={`w-full p-4 rounded-md outline outline-1 flex justify-between items-center ${isCoding ? 'bg-white/5 outline-white/10' : 'bg-white outline-slate-200'}`}>
+                          <div className="flex items-center gap-3">
+                            <FileText className="text-blue-500" size={20} />
+                            <div>
+                              <p className={`${textMain} text-sm font-medium`}>{note.title}</p>
+                              <p className={`${textSub} text-xs mt-0.5`}>{note.fileSize || 'PDF Document'}</p>
+                            </div>
+                          </div>
+                          {isEnrolled ? (
+                            <a href={note.pdfUrl} download target="_blank" rel="noreferrer" className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500/20 transition-colors">
+                              <Download size={18} />
+                            </a>
+                          ) : (
+                            <Lock className="w-5 h-5 text-gray-400" />
+                          )}
                         </div>
-                      </div>
-                      <a href={note.pdfUrl} download target="_blank" rel="noreferrer" className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500/20 transition-colors">
-                        <Download size={18} />
-                      </a>
+                      ))}
+                      {(!course.notes || course.notes.length === 0) && <p className={textSub}>No notes uploaded yet.</p>}
                     </div>
-                  ))}
-                  {(!course.notes || course.notes.length === 0) && <p className={textSub}>No notes uploaded yet.</p>}
+                  </div>
                 </motion.div>
               )}
 
               {activeTab === 'pyqs' && (
                 <motion.div key="pyqs-tab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full flex flex-col gap-4">
-                  {course.pyqs?.map((pyq: any) => (
-                    <div key={pyq._id} className={`w-full p-4 rounded-md outline outline-1 flex justify-between items-center ${isCoding ? 'bg-white/5 outline-white/10' : 'bg-white outline-slate-200'}`}>
-                      <div className="flex items-center gap-3">
-                        <FileText className="text-purple-500" size={20} />
-                        <div>
-                          <p className={`${textMain} text-sm font-medium`}>{pyq.title}</p>
-                          <p className={`${textSub} text-xs mt-0.5`}>{pyq.fileSize || 'PDF Document'}</p>
+                   <div className={`p-4 rounded-xl border ${borderTheme} ${isCoding ? 'bg-[#1C1C1C]' : 'bg-white'} shadow-sm`}>
+                    <h3 className={`${textMain} text-lg font-semibold mb-4`}>Previous Year Questions</h3>
+                    <div className="flex flex-col gap-3">
+                      {course.pyqs?.map((pyq: any) => (
+                        <div key={pyq._id} className={`w-full p-4 rounded-md outline outline-1 flex justify-between items-center ${isCoding ? 'bg-white/5 outline-white/10' : 'bg-white outline-slate-200'}`}>
+                          <div className="flex items-center gap-3">
+                            <FileText className="text-purple-500" size={20} />
+                            <div>
+                              <p className={`${textMain} text-sm font-medium`}>{pyq.title}</p>
+                              <p className={`${textSub} text-xs mt-0.5`}>{pyq.fileSize || 'PDF Document'}</p>
+                            </div>
+                          </div>
+                          {isEnrolled ? (
+                            <a href={pyq.pdfUrl} download target="_blank" rel="noreferrer" className="p-2 bg-purple-500/10 text-purple-500 rounded-lg hover:bg-purple-500/20 transition-colors">
+                              <Download size={18} />
+                            </a>
+                          ) : (
+                            <Lock className="w-5 h-5 text-gray-400" />
+                          )}
                         </div>
-                      </div>
-                      <a href={pyq.pdfUrl} download target="_blank" rel="noreferrer" className="p-2 bg-purple-500/10 text-purple-500 rounded-lg hover:bg-purple-500/20 transition-colors">
-                        <Download size={18} />
-                      </a>
+                      ))}
+                      {(!course.pyqs || course.pyqs.length === 0) && <p className={textSub}>No PYQs uploaded yet.</p>}
                     </div>
-                  ))}
-                  {(!course.pyqs || course.pyqs.length === 0) && <p className={textSub}>No PYQs uploaded yet.</p>}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
