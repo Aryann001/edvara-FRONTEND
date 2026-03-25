@@ -8,6 +8,7 @@ import { ArrowRight, Pencil, Phone } from 'lucide-react';
 import { useAppDispatch } from '@/store/hooks';
 import { setAuth } from '@/store/slices/appSlice';
 import api from '@/services/api';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'; // <-- NEW
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -26,22 +27,9 @@ export default function RegisterPage() {
 
   // --- UI STATE ---
   const [showOtpStep, setShowOtpStep] = useState(false);
-  const [showPhoneStep, setShowPhoneStep] = useState(false); // New state for Google Auth phone collection
+  const [showPhoneStep, setShowPhoneStep] = useState(false); 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-
-  // --- CHECK URL FOR GOOGLE REDIRECT ---
-  // If the backend redirects here after Google Auth because a phone number is missing
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      if (searchParams.get('needsPhone') === 'true') {
-        setShowPhoneStep(true);
-      }
-    }
-  }, []);
 
   // --- ANIMATION VARIANTS ---
   const slideVariants = {
@@ -80,15 +68,39 @@ export default function RegisterPage() {
       // Success! Backend sent the email. Switch UI to OTP step.
       setShowOtpStep(true);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message || 'Registration Failed');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleAuth = () => {
-    // Redirects to backend to initiate Google OAuth flow
-    window.location.href = `${apiUrl}/auth/google`;
+  // --- NEW: GOOGLE SUCCESS HANDLER ---
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setError('');
+    setIsLoading(true);
+    
+    try {
+      // Send the secure Google ID Token to your Node.js backend
+      const { data } = await api.post('/auth/google', {
+        tokenId: credentialResponse.credential,
+        preferredDomain: 'university'
+      });
+
+      if (!data) throw new Error('Google authentication failed');
+
+      // Update Redux with logged in user
+      dispatch(setAuth(data.user));
+      
+      // UX Note: Currently your backend doesn't return the `phone` field in `sendTokenResponse`.
+      // If you update your backend to return it, you can check `if (!data.user.phone)` here.
+      // For now, we will smoothly push them to the classroom.
+      router.push('/classroom');
+
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Google Auth Failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
@@ -103,11 +115,10 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Failed to update phone number');
       }
 
-      // Success! Update Redux & Redirect
       dispatch(setAuth(data.user));
       router.push('/classroom');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message || 'Update failed');
     } finally {
       setIsLoading(false);
     }
@@ -150,348 +161,330 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Invalid OTP');
       }
 
-      // Success! Update Redux & Redirect
       dispatch(setAuth(data.user));
       router.push('/classroom'); 
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message || 'Verification failed');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    // Fixed window layout prevents layout shifting and hides the global footer/navbar
-    <div className="fixed inset-0 z-50 w-full flex bg-neutral-100 overflow-hidden font-['Helvena']">
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
+      <div className="fixed inset-0 z-50 w-full flex bg-neutral-100 overflow-hidden font-['Helvena']">
 
-      {/* --- LEFT SIDE: Branding Panel (Hidden on Mobile) --- */}
-      <div className="hidden lg:flex w-[45%] xl:w-[40%] bg-[#FE6100] shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] flex-col justify-between items-start pt-14 px-14 relative z-10 overflow-hidden">
-        <div className="flex flex-col gap-10 z-20">
-          <Link href="/">
-            <img src="/whitelogoforbentogrid.svg" alt="Edvara" className="w-32 h-auto hover:opacity-90 transition-opacity" />
-          </Link>
-          <h2 className="text-white text-5xl xl:text-6xl font-normal font-['Libre_Baskerville'] leading-tight italic">
-            Padhai bhi, <br/>placement bhi.
-          </h2>
-        </div>
-        <img 
-          src="/sachinHero.png" 
-          alt="Mentor" 
-          className="w-full max-w-[600px] xl:max-w-[750px] object-contain object-bottom self-center mt-auto z-10"
-        />
-      </div>
-
-      {/* --- RIGHT SIDE: Interactive Form Container --- */}
-      <div className="flex-1 flex flex-col p-5 sm:p-10 relative z-20 h-full overflow-y-auto no-scrollbar">
-        
-        {/* MOBILE LOGO (Scrolls naturally with content, NOT fixed/sticky) */}
-        <div className="w-full flex justify-start lg:hidden shrink-0 pt-2 pb-6">
-          <Link href="/">
-            <img src="/logo-dark-text.svg" alt="Edvara" className="h-8" />
-          </Link>
+        {/* --- LEFT SIDE: Branding Panel --- */}
+        <div className="hidden lg:flex w-[45%] xl:w-[40%] bg-[#FE6100] shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] flex-col justify-between items-start pt-14 px-14 relative z-10 overflow-hidden">
+          <div className="flex flex-col gap-10 z-20">
+            <Link href="/">
+              <img src="/whitelogoforbentogrid.svg" alt="Edvara" className="w-32 h-auto hover:opacity-90 transition-opacity" />
+            </Link>
+            <h2 className="text-white text-5xl xl:text-6xl font-normal font-['Libre_Baskerville'] leading-tight italic">
+              Padhai bhi, <br/>placement bhi.
+            </h2>
+          </div>
+          <img 
+            src="/sachinHero.png" 
+            alt="Mentor" 
+            className="w-full max-w-[600px] xl:max-w-[750px] object-contain object-bottom self-center mt-auto z-10"
+          />
         </div>
 
-        {/* Form Wrapper */}
-        <div className="flex-1 flex flex-col justify-center items-center w-full max-w-[500px] mx-auto py-10 lg:py-0">
+        {/* --- RIGHT SIDE: Interactive Form Container --- */}
+        <div className="flex-1 flex flex-col p-5 sm:p-10 relative z-20 h-full overflow-y-auto no-scrollbar">
           
-          <AnimatePresence mode="wait">
-            {showPhoneStep ? (
+          {/* MOBILE LOGO */}
+          <div className="w-full flex justify-start lg:hidden shrink-0 pt-2 pb-6">
+            <Link href="/">
+              <img src="/logo-dark-text.svg" alt="Edvara" className="h-8" />
+            </Link>
+          </div>
 
-              /* --- STEP 3: PHONE COLLECTION (GOOGLE AUTH) --- */
-              <motion.div 
-                key="phone-form"
-                variants={slideVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="w-full flex flex-col items-center gap-6 py-10"
-              >
-                <div className="w-full flex flex-col justify-center items-center gap-2 text-center mb-4">
-                  <h2 className="text-center text-[#FE6100] text-xl sm:text-2xl font-normal font-['Libre_Baskerville'] italic leading-tight">
-                    Almost there!
-                  </h2>
-                  <h1 className="text-black text-3xl sm:text-4xl font-medium font-['Helvena']">
-                    Complete Your Profile
-                  </h1>
-                  <p className="text-gray-600 text-sm sm:text-base font-normal mt-2">
-                    Please provide your phone number to secure your account.
-                  </p>
-                </div>
+          {/* Form Wrapper */}
+          <div className="flex-1 flex flex-col justify-center items-center w-full max-w-[500px] mx-auto py-10 lg:py-0">
+            
+            <AnimatePresence mode="wait">
+              {showPhoneStep ? (
 
-                <AnimatePresence>
-                  {error && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      exit={{ opacity: 0, y: -10 }}
-                      className="w-full p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium text-center"
-                    >
-                      {error}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                /* --- STEP 3: PHONE COLLECTION --- */
+                <motion.div 
+                  key="phone-form"
+                  variants={slideVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="w-full flex flex-col items-center gap-6 py-10"
+                >
+                  <div className="w-full flex flex-col justify-center items-center gap-2 text-center mb-4">
+                    <h2 className="text-center text-[#FE6100] text-xl sm:text-2xl font-normal font-['Libre_Baskerville'] italic leading-tight">
+                      Almost there!
+                    </h2>
+                    <h1 className="text-black text-3xl sm:text-4xl font-medium font-['Helvena']">
+                      Complete Your Profile
+                    </h1>
+                    <p className="text-gray-600 text-sm sm:text-base font-normal mt-2">
+                      Please provide your phone number to secure your account.
+                    </p>
+                  </div>
 
-                <form onSubmit={handlePhoneSubmit} className="w-full flex flex-col gap-5">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-black text-sm font-medium font-['Helvena']">Phone Number</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Phone className="h-5 w-5 text-gray-400" />
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                        className="w-full p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium text-center"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <form onSubmit={handlePhoneSubmit} className="w-full flex flex-col gap-5">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-black text-sm font-medium font-['Helvena']">Phone Number</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Phone className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input 
+                          type="tel" 
+                          required disabled={isLoading}
+                          value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                          placeholder="9876543210"
+                          className="w-full h-11 pl-10 pr-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
+                        />
                       </div>
+                    </div>
+
+                    <button 
+                      type="submit" 
+                      disabled={isLoading || phone.length < 10}
+                      className="w-full h-12 mt-2 bg-neutral-950 rounded-lg shadow-lg flex justify-center items-center gap-2 hover:bg-neutral-800 transition-all disabled:opacity-70 group"
+                    >
+                      <span className="text-white text-sm font-medium font-['Helvena'] leading-5">
+                        {isLoading ? 'Saving...' : 'Complete Registration'}
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </form>
+                </motion.div>
+
+              ) : !showOtpStep ? (
+                
+                /* --- STEP 1: REGISTRATION FORM --- */
+                <motion.div 
+                  key="register-form"
+                  variants={slideVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="w-full flex flex-col items-center gap-6"
+                >
+                  <div className="flex flex-col justify-center items-center mb-2 w-full">
+                    <h2 className="text-center text-[#FE6100] text-xl sm:text-3xl font-normal font-['Libre_Baskerville'] italic leading-tight">
+                      Welcome Aboard!
+                    </h2>
+                    <h1 className="text-center text-neutral-950 text-2xl sm:text-4xl font-medium font-['Helvena']">
+                      Create Your Account
+                    </h1>
+                  </div>
+
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                        className="w-full p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium text-center"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <form onSubmit={handleRegister} className="w-full flex flex-col gap-4 sm:gap-5">
+                    <div className="w-full flex flex-col sm:flex-row gap-4 sm:gap-5">
+                      <div className="flex-1 flex flex-col gap-1.5 sm:gap-2">
+                        <label className="text-black text-sm font-medium font-['Helvena']">First Name</label>
+                        <input 
+                          type="text" 
+                          required disabled={isLoading}
+                          value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="Sachin"
+                          className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
+                        />
+                      </div>
+                      <div className="flex-1 flex flex-col gap-1.5 sm:gap-2">
+                        <label className="text-black text-sm font-medium font-['Helvena']">Last Name</label>
+                        <input 
+                          type="text" 
+                          required disabled={isLoading}
+                          value={lastName} onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Dwivedi"
+                          className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                      <label className="text-black text-sm font-medium font-['Helvena']">Phone Number</label>
                       <input 
                         type="tel" 
                         required disabled={isLoading}
                         value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                         placeholder="9876543210"
-                        className="w-full h-11 pl-10 pr-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
-                      />
-                    </div>
-                  </div>
-
-                  <button 
-                    type="submit" 
-                    disabled={isLoading || phone.length < 10}
-                    className="w-full h-12 mt-2 bg-neutral-950 rounded-lg shadow-lg flex justify-center items-center gap-2 hover:bg-neutral-800 transition-all disabled:opacity-70 group"
-                  >
-                    <span className="text-white text-sm font-medium font-['Helvena'] leading-5">
-                      {isLoading ? 'Saving...' : 'Complete Registration'}
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </form>
-              </motion.div>
-
-            ) : !showOtpStep ? (
-              
-              /* --- STEP 1: REGISTRATION FORM --- */
-              <motion.div 
-                key="register-form"
-                variants={slideVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="w-full flex flex-col items-center gap-6"
-              >
-                {/* Header */}
-                <div className="flex flex-col justify-center items-center mb-2 w-full">
-                  <h2 className="text-center text-[#FE6100] text-xl sm:text-3xl font-normal font-['Libre_Baskerville'] italic leading-tight">
-                    Welcome Aboard!
-                  </h2>
-                  <h1 className="text-center text-neutral-950 text-2xl sm:text-4xl font-medium font-['Helvena']">
-                    Create Your Account
-                  </h1>
-                </div>
-
-                {/* Global Error Banner */}
-                <AnimatePresence>
-                  {error && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      exit={{ opacity: 0, y: -10 }}
-                      className="w-full p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium text-center"
-                    >
-                      {error}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Form Elements */}
-                <form onSubmit={handleRegister} className="w-full flex flex-col gap-4 sm:gap-5">
-                  
-                  {/* Row 1: First & Last Name */}
-                  <div className="w-full flex flex-col sm:flex-row gap-4 sm:gap-5">
-                    <div className="flex-1 flex flex-col gap-1.5 sm:gap-2">
-                      <label className="text-black text-sm font-medium font-['Helvena']">First Name</label>
-                      <input 
-                        type="text" 
-                        required disabled={isLoading}
-                        value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="Sachin"
                         className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
                       />
                     </div>
-                    <div className="flex-1 flex flex-col gap-1.5 sm:gap-2">
-                      <label className="text-black text-sm font-medium font-['Helvena']">Last Name</label>
+
+                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                      <label className="text-black text-sm font-medium font-['Helvena']">Email</label>
                       <input 
-                        type="text" 
+                        type="email" 
                         required disabled={isLoading}
-                        value={lastName} onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Dwivedi"
+                        value={email} onChange={(e) => setEmail(e.target.value)}
+                        placeholder="example@edvara.com"
                         className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
                       />
                     </div>
-                  </div>
 
-                  {/* Row 2: Phone */}
-                  <div className="flex flex-col gap-1.5 sm:gap-2">
-                    <label className="text-black text-sm font-medium font-['Helvena']">Phone Number</label>
-                    <input 
-                      type="tel" 
-                      required disabled={isLoading}
-                      value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                      placeholder="9876543210"
-                      className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
-                    />
-                  </div>
-
-                  {/* Row 3: Email */}
-                  <div className="flex flex-col gap-1.5 sm:gap-2">
-                    <label className="text-black text-sm font-medium font-['Helvena']">Email</label>
-                    <input 
-                      type="email" 
-                      required disabled={isLoading}
-                      value={email} onChange={(e) => setEmail(e.target.value)}
-                      placeholder="example@edvara.com"
-                      className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
-                    />
-                  </div>
-
-                  {/* Row 4: Password */}
-                  <div className="flex flex-col gap-1.5 sm:gap-2">
-                    <label className="text-black text-sm font-medium font-['Helvena']">Password</label>
-                    <input 
-                      type="password" 
-                      required minLength={6} disabled={isLoading}
-                      value={password} onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
-                    />
-                  </div>
-
-                  {/* Submit Button */}
-                  <button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className="w-full h-12 mt-2 bg-neutral-950 rounded-lg shadow-lg flex justify-center items-center gap-2 hover:bg-neutral-800 transition-all disabled:opacity-70 group"
-                  >
-                    <span className="text-white text-sm font-medium font-['Helvena'] leading-5">
-                      {isLoading ? 'Registering...' : 'Register Now'}
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </form>
-
-                {/* Divider */}
-                <div className="w-full flex justify-center items-center gap-6 mt-1 sm:mt-2">
-                  <div className="flex-1 h-[1px] bg-gray-300"></div>
-                  <span className="text-black text-base font-medium font-['Helvena']">or</span>
-                  <div className="flex-1 h-[1px] bg-gray-300"></div>
-                </div>
-
-                {/* Google Auth Button */}
-                <button 
-                  type="button"
-                  disabled={isLoading}
-                  onClick={handleGoogleAuth}
-                  className="w-full h-11 bg-white rounded-lg outline outline-1 outline-neutral-300 flex justify-center items-center gap-3 hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-                  <span className="text-stone-950 text-sm font-medium font-['Helvena']">
-                    Continue with Google
-                  </span>
-                </button>
-
-                {/* Login Link */}
-                <div className="text-center mt-2">
-                  <span className="text-neutral-950 text-sm font-medium font-['Inter']">Already have an account? </span>
-                  <Link href="/login" className="text-[#FE6100] text-sm font-bold font-['Helvena'] hover:underline">
-                    Sign In
-                  </Link>
-                </div>
-              </motion.div>
-
-            ) : (
-
-              /* --- STEP 2: OTP VERIFICATION --- */
-              <motion.div 
-                key="otp-form"
-                variants={slideVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="w-full flex flex-col items-center gap-8 py-10"
-              >
-                <div className="w-full flex flex-col justify-center items-center gap-2 text-center">
-                  <h1 className="text-black text-3xl sm:text-4xl font-medium font-['Helvena']">OTP Verification</h1>
-                  <div className="flex justify-center items-center gap-2 flex-wrap">
-                    <span className="text-gray-600 text-sm sm:text-base font-normal font-['Helvena']">
-                      Enter the OTP sent to <span className="font-semibold text-neutral-900">{email}</span>
-                    </span>
-                    <button 
-                      onClick={() => setShowOtpStep(false)}
-                      className="p-1.5 rounded-md transition-colors group hover:bg-orange-50"
-                      title="Edit Email"
-                    >
-                      <Pencil className="w-4 h-4 text-[#FE6100] group-hover:scale-110 transition-transform" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Global Error Banner */}
-                <AnimatePresence>
-                  {error && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      exit={{ opacity: 0, y: -10 }}
-                      className="w-full max-w-sm p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium text-center"
-                    >
-                      {error}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <form onSubmit={handleVerifyOtp} className="w-full flex flex-col items-center gap-8">
-                  {/* 6 Digit OTP Inputs */}
-                  <div className="w-full flex justify-center items-center gap-2 sm:gap-4">
-                    {otpValues.map((digit, idx) => (
-                      <input
-                        key={idx}
-                        ref={(el) => { otpRefs.current[idx] = el; }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleOtpChange(idx, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                        disabled={isLoading}
-                        className={`w-12 h-14 sm:w-16 sm:h-16 rounded-lg bg-white outline outline-1 flex justify-center items-center text-center text-xl font-semibold font-['Inter'] shadow-sm transition-all focus:outline-2 ${
-                          digit ? 'outline-[#FE6100] text-[#FE6100]' : 'outline-neutral-300 text-gray-900 focus:outline-[#FE6100]'
-                        }`}
+                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                      <label className="text-black text-sm font-medium font-['Helvena']">Password</label>
+                      <input 
+                        type="password" 
+                        required minLength={6} disabled={isLoading}
+                        value={password} onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full h-11 px-3 py-2 rounded-lg bg-white outline outline-1 outline-neutral-200 focus:outline-[#FE6100] transition-colors text-stone-900 text-sm font-medium placeholder:text-gray-400"
                       />
-                    ))}
-                  </div>
+                    </div>
 
-                  <div className="w-full max-w-sm flex flex-col gap-4">
                     <button 
                       type="submit" 
-                      disabled={isLoading || otpValues.join('').length < 6}
-                      className="w-full h-12 bg-neutral-950 rounded-lg shadow-lg flex justify-center items-center gap-2 hover:bg-neutral-800 transition-all disabled:opacity-70 group"
+                      disabled={isLoading}
+                      className="w-full h-12 mt-2 bg-neutral-950 rounded-lg shadow-lg flex justify-center items-center gap-2 hover:bg-neutral-800 transition-all disabled:opacity-70 group"
                     >
                       <span className="text-white text-sm font-medium font-['Helvena'] leading-5">
-                        {isLoading ? 'Verifying...' : 'Verify & Continue'}
+                        {isLoading ? 'Registering...' : 'Register Now'}
                       </span>
                       <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
                     </button>
+                  </form>
 
-                    <button 
-                      type="button" 
-                      disabled={isLoading}
-                      onClick={handleRegister} 
-                      className="text-center text-[#FE6100] text-sm font-medium font-['Inter'] hover:underline disabled:opacity-50"
-                    >
-                      Resend OTP
-                    </button>
+                  <div className="w-full flex justify-center items-center gap-6 mt-1 sm:mt-2">
+                    <div className="flex-1 h-[1px] bg-gray-300"></div>
+                    <span className="text-black text-base font-medium font-['Helvena']">or</span>
+                    <div className="flex-1 h-[1px] bg-gray-300"></div>
                   </div>
-                </form>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
+                  {/* OFFICIAL GOOGLE LOGIN COMPONENT */}
+                  <div className="w-full flex justify-center">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => setError('Google popup was closed or failed.')}
+                      useOneTap
+                      theme="outline"
+                      size="large"
+                      width="100%"
+                      text="signup_with"
+                      shape="rectangular"
+                    />
+                  </div>
+
+                  <div className="text-center mt-2">
+                    <span className="text-neutral-950 text-sm font-medium font-['Inter']">Already have an account? </span>
+                    <Link href="/login" className="text-[#FE6100] text-sm font-bold font-['Helvena'] hover:underline">
+                      Sign In
+                    </Link>
+                  </div>
+                </motion.div>
+
+              ) : (
+
+                /* --- STEP 2: OTP VERIFICATION --- */
+                <motion.div 
+                  key="otp-form"
+                  variants={slideVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="w-full flex flex-col items-center gap-8 py-10"
+                >
+                  <div className="w-full flex flex-col justify-center items-center gap-2 text-center">
+                    <h1 className="text-black text-3xl sm:text-4xl font-medium font-['Helvena']">OTP Verification</h1>
+                    <div className="flex justify-center items-center gap-2 flex-wrap">
+                      <span className="text-gray-600 text-sm sm:text-base font-normal font-['Helvena']">
+                        Enter the OTP sent to <span className="font-semibold text-neutral-900">{email}</span>
+                      </span>
+                      <button 
+                        onClick={() => setShowOtpStep(false)}
+                        className="p-1.5 rounded-md transition-colors group hover:bg-orange-50"
+                        title="Edit Email"
+                      >
+                        <Pencil className="w-4 h-4 text-[#FE6100] group-hover:scale-110 transition-transform" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                        className="w-full max-w-sm p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg font-medium text-center"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <form onSubmit={handleVerifyOtp} className="w-full flex flex-col items-center gap-8">
+                    <div className="w-full flex justify-center items-center gap-2 sm:gap-4">
+                      {otpValues.map((digit, idx) => (
+                        <input
+                          key={idx}
+                          ref={(el) => { otpRefs.current[idx] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleOtpChange(idx, e.target.value)}
+                          onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                          disabled={isLoading}
+                          className={`w-12 h-14 sm:w-16 sm:h-16 rounded-lg bg-white outline outline-1 flex justify-center items-center text-center text-xl font-semibold font-['Inter'] shadow-sm transition-all focus:outline-2 ${
+                            digit ? 'outline-[#FE6100] text-[#FE6100]' : 'outline-neutral-300 text-gray-900 focus:outline-[#FE6100]'
+                          }`}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="w-full max-w-sm flex flex-col gap-4">
+                      <button 
+                        type="submit" 
+                        disabled={isLoading || otpValues.join('').length < 6}
+                        className="w-full h-12 bg-neutral-950 rounded-lg shadow-lg flex justify-center items-center gap-2 hover:bg-neutral-800 transition-all disabled:opacity-70 group"
+                      >
+                        <span className="text-white text-sm font-medium font-['Helvena'] leading-5">
+                          {isLoading ? 'Verifying...' : 'Verify & Continue'}
+                        </span>
+                        <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+                      </button>
+
+                      <button 
+                        type="button" 
+                        disabled={isLoading}
+                        onClick={handleRegister} 
+                        className="text-center text-[#FE6100] text-sm font-medium font-['Inter'] hover:underline disabled:opacity-50"
+                      >
+                        Resend OTP
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+          </div>
         </div>
-      </div>
 
-    </div>
+      </div>
+    </GoogleOAuthProvider>
   );
 }

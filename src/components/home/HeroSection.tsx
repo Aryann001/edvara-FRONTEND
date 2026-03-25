@@ -3,6 +3,7 @@
 import React from "react";
 import { Heart, Star, ArrowRight } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
+import Link from "next/link";
 
 export default function HeroSection() {
   const isCoding = useAppSelector((state) => state.app.isCodingDomain);
@@ -129,7 +130,8 @@ export default function HeroSection() {
                   </div>
 
                   {/* CTA Button */}
-                  <div
+                  <Link
+                    href="/courses"
                     className={`h-12 lg:h-10 px-6 py-2 ${ctaBg} rounded-lg shadow-[0px_3px_6px_0px_rgba(0,0,0,0.10),_0px_11px_11px_0px_rgba(0,0,0,0.09),_0px_26px_15px_0px_rgba(0,0,0,0.05),_inset_0px_4px_4px_0px_rgba(255,255,255,0.25)] inline-flex justify-center items-center gap-2 cursor-pointer hover:opacity-90 transition-all`}
                   >
                     <div
@@ -140,7 +142,7 @@ export default function HeroSection() {
                     <ArrowRight
                       className={`w-4 h-4 md:w-5 md:h-5 ${ctaText}`}
                     />
-                  </div>
+                  </Link>
                 </div>
 
                 {/* Social Proof Students */}

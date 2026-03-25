@@ -133,7 +133,7 @@ export default function FreePreviews() {
               {/* HTML5 Video Element */}
               <video
                 ref={videoRef}
-                src="/video.mkv"
+                src="/video.mp4"
                 poster="/thumbnail.jpeg" // Premium Thumbnail
                 className="w-full h-full object-cover"
                 playsInline
