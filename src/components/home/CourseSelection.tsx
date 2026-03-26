@@ -297,7 +297,7 @@ export default function CourseSelection() {
                     isLoading ? (
                       <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 text-indigo-600 animate-spin" /></div>
                     ) : universities.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                         {universities.map((uni) => (
                           <div key={uni._id} onClick={() => { if (uni.isReady) handleUniSelect(uni); else setIsRequestPopupOpen(true); }} className={`relative p-4 md:p-6 rounded-2xl md:rounded-[28px] outline transition-all duration-300 ease-out flex flex-col gap-6 md:gap-8 group cursor-pointer ${!uni.isReady ? 'opacity-70 hover:opacity-100 outline-1 outline-gray-200 bg-gray-50 hover:shadow-md' : lastSelectedId === uni._id ? 'outline-2 outline-[#FE6100] bg-[#FE6100]/5 shadow-md' : 'outline-1 outline-gray-200 hover:outline-[#FE6100]/30 hover:shadow-lg bg-white'}`}>
                             <div className="w-12 h-12 md:w-16 md:h-16 bg-neutral-50 flex items-center justify-center rounded-xl md:rounded-2xl outline outline-1 outline-gray-100 shadow-sm overflow-hidden">
@@ -328,7 +328,7 @@ export default function CourseSelection() {
                   )}
 
                   {step === 2 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                       {selectedUni?.branches?.length > 0 ? (
                         selectedUni.branches.map((branch: string) => (
                           <button key={branch} onClick={() => handleBranchSelect(branch)} className={`p-5 md:p-8 rounded-2xl md:rounded-[28px] outline outline-1 outline-gray-200 hover:outline-[#FE6100]/30 hover:shadow-lg font-['Helvena'] text-base md:text-xl text-left font-semibold transition-all duration-300 flex justify-between items-center cursor-pointer group ${lastSelectedId === branch ? 'outline-2 outline-[#FE6100] bg-[#FE6100]/5 shadow-md' : 'bg-white'}`}>

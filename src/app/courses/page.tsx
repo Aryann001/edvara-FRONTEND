@@ -137,7 +137,6 @@ export default function CourseSelection() {
   if (isCoding) {
     return (
       <section className="w-full bg-[#161616] flex flex-col items-center overflow-hidden transition-colors duration-500 pt-[80px] lg:pt-[100px]">
-        <div className="w-full h-0 border-t border-slate-800" />
 
         <div className="w-full max-w-[1440px] px-5 md:px-10 lg:px-20 py-14 lg:py-24 flex flex-col justify-center items-center gap-10 lg:gap-14">
           
@@ -240,7 +239,6 @@ export default function CourseSelection() {
   return (
     <>
       <section className="min-h-screen w-full bg-neutral-50 flex flex-col items-center pt-[80px] lg:pt-[100px]">
-        <div className="w-full h-0 border-t border-gray-300" />
 
         <div className="w-full max-w-[1440px] px-5 md:px-10 lg:px-20 py-14 lg:py-20 flex flex-col items-center gap-10 lg:gap-14">
           <div className="flex flex-col items-center text-center gap-3">
@@ -358,7 +356,7 @@ export default function CourseSelection() {
                         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
                       </div>
                     ) : universities.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                         {universities.map((uni) => (
                           <div 
                             key={uni._id} 

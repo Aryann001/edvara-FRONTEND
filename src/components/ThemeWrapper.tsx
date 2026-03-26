@@ -23,6 +23,7 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
   const [isRedirecting, setIsRedirecting] = useState(false); // Handles client-side redirect animations
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
+  const isDashboardPage = pathname.startsWith('/dashboard'); // <-- NEW: Identifies dashboard routes
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
   // =====================================================================
@@ -63,12 +64,16 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
         let shouldRedirect = false;
         let redirectUrl = '';
 
+        // FIXED: Logged in users are sent strictly to their dashboard if they hit an auth route
         if (isAuthRoute && isAuth) {
-          shouldRedirect = true; redirectUrl = '/';
+          shouldRedirect = true; 
+          redirectUrl = userRole === 'admin' ? '/dashboard' : '/classroom';
         } else if ((isProtectedRoute || isAdminRoute) && !isAuth) {
-          shouldRedirect = true; redirectUrl = '/login';
+          shouldRedirect = true; 
+          redirectUrl = '/login';
         } else if (isAdminRoute && isAuth && userRole !== 'admin') {
-          shouldRedirect = true; redirectUrl = '/';
+          shouldRedirect = true; 
+          redirectUrl = '/';
         }
 
         if (shouldRedirect) {
@@ -97,12 +102,16 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
     let shouldRedirect = false;
     let redirectUrl = '';
 
+    // FIXED: Logged in users are sent strictly to their dashboard if they hit an auth route
     if (isAuthRoute && isAuthenticated) {
-      shouldRedirect = true; redirectUrl = '/';
+      shouldRedirect = true; 
+      redirectUrl = user?.role === 'admin' ? '/dashboard' : '/classroom';
     } else if ((isProtectedRoute || isAdminRoute) && !isAuthenticated) {
-      shouldRedirect = true; redirectUrl = '/login';
+      shouldRedirect = true; 
+      redirectUrl = '/login';
     } else if (isAdminRoute && isAuthenticated && user?.role !== 'admin') {
-      shouldRedirect = true; redirectUrl = '/';
+      shouldRedirect = true; 
+      redirectUrl = '/';
     }
 
     if (shouldRedirect) {
@@ -137,7 +146,7 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
   const thumbColor = activeTheme ? '#333333' : '#c0c4c8';
 
   return (
-    <div className={`min-h-screen w-full transition-colors duration-500 ${mounted ? globalThemeClass : (initialTheme ? 'bg-[#161616]' : 'bg-neutral-50')}`}>
+    <div className={`min-h-screen w-full transition-colors duration-500 ${mounted ? globalThemeClass : (initialTheme ? 'bg-[#161616]' : 'bg-neutral-50')} font-['Helvena']`}>
       
       {/* INSTANT SCROLLBAR INJECTION 
         Forces the browser to use the custom scrollbar from the first millisecond,
@@ -202,7 +211,8 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
           <main className={!isAuthPage ? "pt-0" : ""}>
             {children}
           </main>
-          {!isAuthPage && <Footer />}
+          {/* Hides footer on login/register AND any /dashboard route */}
+          {!isAuthPage && !isDashboardPage && <Footer />}
         </>
       )}
     </div>
