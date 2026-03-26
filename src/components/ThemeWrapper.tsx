@@ -7,6 +7,7 @@ import { setDomain, setAuth, logout } from '@/store/slices/appSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import api from '@/services/api'; // <-- ADDED: Importing your Axios instance
 
 export default function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
@@ -23,8 +24,7 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
   const [isRedirecting, setIsRedirecting] = useState(false); // Handles client-side redirect animations
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
-  const isDashboardPage = pathname.startsWith('/dashboard'); // <-- NEW: Identifies dashboard routes
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+  const isDashboardPage = pathname.startsWith('/dashboard'); // <-- Identifies dashboard routes
 
   // =====================================================================
   // 1. INITIAL FETCH (Runs exactly ONCE on full page load)
@@ -44,9 +44,9 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
       let userRole = null;
 
       try {
-        const res = await fetch(`${apiUrl}/auth/me`, { credentials: 'include', cache: 'no-store' });
-        const data = await res.json();
-        if (res.ok && data.success) {
+        // FIXED: Uses the `api` instance so it seamlessly hits the proxy and carries cookies
+        const { data } = await api.get('/auth/me');
+        if (data && data.success) {
           dispatch(setAuth(data.data)); 
           isAuth = true;
           userRole = data.data.role;
@@ -64,7 +64,7 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
         let shouldRedirect = false;
         let redirectUrl = '';
 
-        // FIXED: Logged in users are sent strictly to their dashboard if they hit an auth route
+        // Logged in users are sent strictly to their dashboard if they hit an auth route
         if (isAuthRoute && isAuth) {
           shouldRedirect = true; 
           redirectUrl = userRole === 'admin' ? '/dashboard' : '/classroom';
@@ -87,7 +87,7 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
 
     checkAuthSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, apiUrl]); // Empty dependency array ensures it only fetches once
+  }, [dispatch]); // Removed apiUrl dependency since we are using Axios
 
   // =====================================================================
   // 2. CLIENT-SIDE ROUTE GUARD (Runs instantly on every page click)
@@ -102,7 +102,6 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
     let shouldRedirect = false;
     let redirectUrl = '';
 
-    // FIXED: Logged in users are sent strictly to their dashboard if they hit an auth route
     if (isAuthRoute && isAuthenticated) {
       shouldRedirect = true; 
       redirectUrl = user?.role === 'admin' ? '/dashboard' : '/classroom';

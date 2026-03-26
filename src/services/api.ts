@@ -3,7 +3,7 @@ import { store } from '@/store'; // Import your Redux store directly
 import { logout } from '@/store/slices/appSlice';
 
 const api = axios.create({
-  // Fallback to localhost if env variable is missing
+  // Automatically handles local vs production proxy routing
   baseURL: '/api/v1',
   
   // CRITICAL: This tells Axios to send/receive the HTTP-only cookies
@@ -27,8 +27,14 @@ api.interceptors.response.use(
       // 1. Instantly wipe the stale user data from Redux & LocalStorage
       store.dispatch(logout());
       
-      // 2. Safely redirect to login (only if we are in the browser and not already on the login page)
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      // 2. Safely redirect to login, BUT ignore background auth checks to prevent redirect loops
+      const isAuthCheck = error.config?.url?.includes('/auth/me');
+      const isAuthPage = typeof window !== 'undefined' && 
+        (window.location.pathname === '/login' || 
+         window.location.pathname === '/register' || 
+         window.location.pathname === '/forgot-password');
+      
+      if (!isAuthCheck && !isAuthPage && typeof window !== 'undefined') {
         window.location.href = '/login';
       }
     }
