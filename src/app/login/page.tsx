@@ -134,7 +134,7 @@ export default function LoginPage() {
               </AnimatePresence>
 
               {/* OFFICIAL GOOGLE LOGIN COMPONENT */}
-              <div className="w-full flex justify-center [&>div]:w-full">
+              <div className="w-full flex justify-center">
                 <GoogleLogin
                   onSuccess={handleGoogleSuccess}
                   onError={() => setError('Google login failed.')}
@@ -143,7 +143,7 @@ export default function LoginPage() {
                   size="large"
                   text="continue_with"
                   shape="pill"
-                  width="100%"
+                  width="340"
                 />
               </div>
 

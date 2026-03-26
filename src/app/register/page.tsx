@@ -74,15 +74,16 @@ export default function RegisterPage() {
     }
   };
 
-  // --- RESTORED GOOGLE SUCCESS HANDLER ---
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  // --- GOOGLE SUCCESS HANDLER ---
+  const handleGoogleSuccess = async (tokenResponse: any) => {
     setError('');
     setIsLoading(true);
     
     try {
-      // Send the secure Google ID Token (credential) to your Node.js backend
+      // Send the secure Google Token to your Node.js backend
+      // Uses access_token for custom buttons, falls back to credential just in case
       const { data } = await api.post('/auth/google', {
-        tokenId: credentialResponse.credential,
+        tokenId: tokenResponse.access_token || tokenResponse.credential,
         preferredDomain: 'university'
       });
 
@@ -91,7 +92,9 @@ export default function RegisterPage() {
       // Update Redux with logged in user
       dispatch(setAuth(data.user));
       
-      // Navigate to dashboard
+      // UX Note: Currently your backend doesn't return the `phone` field in `sendTokenResponse`.
+      // If you update your backend to return it, you can check `if (!data.user.phone)` here.
+      // For now, we will smoothly push them to the classroom.
       router.push('/classroom');
 
     } catch (err: any) {
@@ -374,14 +377,14 @@ export default function RegisterPage() {
                   </div>
 
                   {/* OFFICIAL GOOGLE LOGIN COMPONENT */}
-                  <div className="w-full flex justify-center [&>div]:w-full">
+                  <div className="w-full flex justify-center">
                     <GoogleLogin
                       onSuccess={handleGoogleSuccess}
                       onError={() => setError('Google login failed.')}
                       useOneTap
                       theme="outline"
                       size="large"
-                      width="100%"
+                      width="340"
                       text="signup_with"
                       shape="pill"
                     />
