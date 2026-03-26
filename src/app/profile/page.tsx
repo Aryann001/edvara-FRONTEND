@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Save, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, Save, Loader2, CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setAuth } from '@/store/slices/appSlice';
 import api from '@/services/api';
@@ -19,6 +19,7 @@ export default function ProfilePage() {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [preferredDomain, setPreferredDomain] = useState('coding');
 
   // State and ref for the file upload & saving
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,6 +35,7 @@ export default function ProfilePage() {
       setLastName(nameParts.slice(1).join(' ') || '');
       setPhone(user.phone || '');
       setEmail(user.email || '');
+      setPreferredDomain(user.preferredDomain || 'coding');
     }
   }, [user]);
 
@@ -42,7 +44,8 @@ export default function ProfilePage() {
   const hasChanges = 
     currentFullName !== user?.name || 
     email !== user?.email || 
-    phone !== (user?.phone || '');
+    phone !== (user?.phone || '') ||
+    preferredDomain !== (user?.preferredDomain || 'coding');
 
   // --- THE UPLOAD HANDLER ---
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,13 +94,14 @@ export default function ProfilePage() {
     try {
       let updatedUser = { ...user };
 
-      // 1. Update Name & Email if changed
-      if (currentFullName !== user.name || email !== user.email) {
+      // 1. Update Name, Email & Domain if changed
+      if (currentFullName !== user.name || email !== user.email || preferredDomain !== user.preferredDomain) {
         const { data } = await api.put('/auth/updatedetails', { 
           name: currentFullName, 
-          email 
+          email,
+          preferredDomain // Passes to backend 
         });
-        updatedUser = { ...updatedUser, ...data.data };
+        updatedUser = { ...updatedUser, ...data.data, preferredDomain };
       }
 
       // 2. Update Phone if changed
@@ -141,7 +145,7 @@ export default function ProfilePage() {
         
         {/* Header */}
         <div className="w-full flex justify-between items-end">
-          <h1 className={`${textMain} text-2xl md:text-3xl font-bold`}>
+          <h1 className={`text-[#FE6100] text-3xl md:text-4xl font-normal font-['Libre_Baskerville'] italic`}>
             My Profile
           </h1>
         </div>
@@ -171,7 +175,7 @@ export default function ProfilePage() {
           {/* SECTION 1: PROFILE PHOTO */}
           {/* ========================================== */}
           <div className="w-full flex flex-col justify-start items-start gap-3">
-            <h2 className={`${sectionTitleColor} text-base font-medium font-['Geist'] leading-6`}>
+            <h2 className={`${sectionTitleColor} text-xl font-normal font-['Libre_Baskerville'] italic`}>
               Profile Photo
             </h2>
             
@@ -215,7 +219,7 @@ export default function ProfilePage() {
                       {isUploading ? 'Uploading...' : 'Update Photo'}
                     </span>
                   </button>
-                  <p className={`justify-start text-xs sm:text-sm font-normal font-['Geist'] ${textSub}`}>
+                  <p className={`justify-start text-xs sm:text-sm font-normal font-['Helvena'] ${textSub}`}>
                     Accepted formats: JPG, PNG, WEBP (max 5 MB).
                   </p>
                 </div>
@@ -228,13 +232,13 @@ export default function ProfilePage() {
           {/* SECTION 2: PERSONAL INFORMATION */}
           {/* ========================================== */}
           <div className="w-full flex flex-col justify-start items-start gap-3">
-            <h2 className={`${sectionTitleColor} text-base font-medium font-['Geist'] leading-6`}>
+            <h2 className={`${sectionTitleColor} text-xl font-normal font-['Libre_Baskerville'] italic`}>
               Personal Information
             </h2>
 
             <div className={`w-full p-5 sm:p-6 rounded-xl outline outline-1 outline-offset-[-1px] flex flex-col gap-6 transition-colors ${cardBg}`}>
               
-              {/* Row 1: Name (Responsive Grid) */}
+              {/* Row 1: Name */}
               <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
                 <div className="w-full flex flex-col justify-start items-start gap-2">
                   <label className={`${sectionTitleColor} text-sm font-medium`}>First Name</label>
@@ -258,7 +262,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Row 2: Contact (Responsive Grid) */}
+              {/* Row 2: Contact */}
               <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
                 <div className="w-full flex flex-col justify-start items-start gap-2">
                   <label className={`${sectionTitleColor} text-sm font-medium`}>Phone Number</label>
@@ -281,57 +285,73 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
-
-              {/* Save Action */}
-              <div className="w-full flex justify-end pt-2">
-                <button
-                  onClick={handleSaveChanges}
-                  disabled={!hasChanges || isSaving || !firstName || !email}
-                  className={`h-11 px-6 rounded-lg font-medium text-sm inline-flex items-center gap-2 transition-all active:scale-95 ${
-                    hasChanges && !isSaving && firstName && email
-                      ? 'bg-[#FE6100] hover:bg-[#e05600] text-white shadow-[0_4px_14px_rgba(254,97,0,0.3)]'
-                      : `${inputBg} ${textSub} cursor-not-allowed`
-                  }`}
-                >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-
             </div>
           </div>
 
           {/* ========================================== */}
-          {/* SECTION 3: PLATFORM PREFERENCES (Real Data) */}
+          {/* SECTION 3: PLATFORM PREFERENCES */}
           {/* ========================================== */}
           <div className="w-full flex flex-col justify-start items-start gap-3">
-            <h2 className={`${sectionTitleColor} text-base font-medium font-['Geist'] leading-6`}>
+            <h2 className={`${sectionTitleColor} text-xl font-normal font-['Libre_Baskerville'] italic`}>
               Account Details
             </h2>
 
-            <div className={`w-full p-5 rounded-xl outline outline-1 outline-offset-[-1px] transition-colors ${cardBg}`}>
-              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className={`w-full p-5 sm:p-6 rounded-xl outline outline-1 outline-offset-[-1px] transition-colors ${cardBg}`}>
+              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
                 
-                <div className="flex flex-col justify-start items-start gap-1.5 sm:gap-2">
-                  <span className={`${textSub} text-sm font-normal`}>Account Role</span>
-                  <span className={`${sectionTitleColor} text-sm font-medium capitalize px-3 py-1 rounded-md ${inputBg}`}>
-                    {user?.role || 'User'}
-                  </span>
+                {/* Account Role (Read Only) */}
+                <div className="w-full flex flex-col justify-start items-start gap-2">
+                  <label className={`${sectionTitleColor} text-sm font-medium`}>Account Role</label>
+                  <input 
+                    type="text" 
+                    value={user?.role || 'user'}
+                    disabled
+                    className={`w-full h-11 px-3.5 rounded-lg outline outline-1 outline-offset-[-1px] transition-all ${inputBg} ${textMain} opacity-60 text-sm font-medium capitalize cursor-not-allowed`}
+                  />
                 </div>
                 
-                <div className="flex flex-col justify-start items-start gap-1.5 sm:gap-2">
-                  <span className={`${textSub} text-sm font-normal`}>Preferred Domain</span>
-                  <span className={`${sectionTitleColor} text-sm font-medium capitalize px-3 py-1 rounded-md ${inputBg}`}>
-                    {user?.preferredDomain || 'Coding'}
-                  </span>
+                {/* Preferred Domain (Editable) */}
+                <div className="w-full flex flex-col justify-start items-start gap-2">
+                  <label className={`${sectionTitleColor} text-sm font-medium`}>Preferred Domain</label>
+                  <div className="relative w-full">
+                    <select
+                      value={preferredDomain}
+                      onChange={(e) => setPreferredDomain(e.target.value)}
+                      className={`w-full h-11 px-3.5 rounded-lg outline outline-1 outline-offset-[-1px] transition-all focus:outline-2 focus:outline-[#FE6100] ${inputBg} ${textMain} text-sm font-medium appearance-none cursor-pointer`}
+                    >
+                      <option value="coding">Coding</option>
+                      <option value="university">University</option>
+                    </select>
+                    <div className={`absolute inset-y-0 right-4 flex items-center pointer-events-none ${textSub}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
                 </div>
 
               </div>
             </div>
+          </div>
+
+          {/* ========================================== */}
+          {/* GLOBAL SAVE ACTION */}
+          {/* ========================================== */}
+          <div className="w-full flex justify-end">
+            <button
+              onClick={handleSaveChanges}
+              disabled={!hasChanges || isSaving || !firstName || !email}
+              className={`h-12 px-8 rounded-lg font-medium text-sm inline-flex items-center gap-2 transition-all active:scale-95 ${
+                hasChanges && !isSaving && firstName && email
+                  ? 'bg-[#FE6100] hover:bg-[#e05600] text-white shadow-[0_4px_14px_rgba(254,97,0,0.3)]'
+                  : `${inputBg} ${textSub} cursor-not-allowed`
+              }`}
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
 
         </div>
