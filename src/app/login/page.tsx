@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store/hooks";
@@ -8,40 +8,7 @@ import { setAuth } from "@/store/slices/appSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import api from "@/services/api";
-import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
-
-// --- CUSTOM GOOGLE BUTTON COMPONENT ---
-const CustomGoogleButton = ({ onSuccess, onError, isGlobalLoading }: { onSuccess: (res: any) => void, onError: () => void, isGlobalLoading: boolean }) => {
-  const [isGoogleReady, setIsGoogleReady] = useState(false);
-
-  // Simulating script readiness (Google's script usually loads instantly, but this prevents rapid-fire clicks before init)
-  useEffect(() => {
-    setIsGoogleReady(true);
-  }, []);
-
-  const login = useGoogleLogin({
-    onSuccess,
-    onError,
-  });
-
-  return (
-    <button
-      type="button"
-      onClick={() => login()}
-      disabled={isGlobalLoading || !isGoogleReady}
-      className="self-stretch w-full h-12 px-6 py-2 bg-white rounded-full outline outline-1 outline-offset-[-1px] outline-neutral-200 inline-flex justify-center items-center gap-2 overflow-hidden transition-all hover:bg-neutral-50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <img 
-        src="https://www.svgrepo.com/show/475656/google-color.svg" 
-        alt="Google Logo" 
-        className="w-5 h-5 shrink-0" 
-      />
-      <div className="justify-center text-black text-sm font-medium font-['Helvena'] leading-6">
-        {isGoogleReady ? "Sign up with Google" : "Loading Google..."}
-      </div>
-    </button>
-  );
-};
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -73,17 +40,16 @@ export default function LoginPage() {
     }
   };
 
-  // --- GOOGLE SUCCESS HANDLER ---
-  const handleGoogleSuccess = async (tokenResponse: any) => {
+  // --- RESTORED GOOGLE SUCCESS HANDLER ---
+  const handleGoogleSuccess = async (credentialResponse: any) => {
     setError('');
     setIsLoading(true);
     
     try {
-      // Send the secure Google Token to your Node.js backend
-      // Uses access_token for custom buttons, falls back to credential just in case
+      // Send the secure Google ID Token (credential) back to your Node.js backend
       const { data } = await api.post('/auth/google', {
-        tokenId: tokenResponse.access_token || tokenResponse.credential, 
-        preferredDomain: 'university' // Or handle domain preference dynamically
+        tokenId: credentialResponse.credential, 
+        preferredDomain: 'university' 
       });
 
       if (!data) throw new Error('Google authentication failed');
@@ -100,7 +66,6 @@ export default function LoginPage() {
   };
 
   return (
-    // Wrap the entire component in the Provider
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
       {/* Fixed overlay layout perfectly hides the global layout footer and navbar */}
       <div className="fixed inset-0 z-50 w-full flex bg-neutral-100 overflow-hidden font-['Helvena']">
@@ -168,12 +133,17 @@ export default function LoginPage() {
                 )}
               </AnimatePresence>
 
-              {/* CUSTOM GOOGLE LOGIN COMPONENT */}
-              <div className="w-full flex justify-center">
-                <CustomGoogleButton 
-                  onSuccess={handleGoogleSuccess} 
-                  onError={() => setError('Google popup was closed or failed.')} 
-                  isGlobalLoading={isLoading} 
+              {/* OFFICIAL GOOGLE LOGIN COMPONENT */}
+              <div className="w-full flex justify-center [&>div]:w-full">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('Google login failed.')}
+                  useOneTap
+                  theme="outline"
+                  size="large"
+                  text="continue_with"
+                  shape="pill"
+                  width="100%"
                 />
               </div>
 

@@ -8,40 +8,7 @@ import { ArrowRight, Pencil, Phone } from 'lucide-react';
 import { useAppDispatch } from '@/store/hooks';
 import { setAuth } from '@/store/slices/appSlice';
 import api from '@/services/api';
-import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
-
-// --- CUSTOM GOOGLE BUTTON COMPONENT ---
-const CustomGoogleButton = ({ onSuccess, onError, isGlobalLoading }: { onSuccess: (res: any) => void, onError: () => void, isGlobalLoading: boolean }) => {
-  const [isGoogleReady, setIsGoogleReady] = useState(false);
-
-  // Simulating script readiness (Google's script usually loads instantly, but this prevents rapid-fire clicks before init)
-  useEffect(() => {
-    setIsGoogleReady(true);
-  }, []);
-
-  const login = useGoogleLogin({
-    onSuccess,
-    onError,
-  });
-
-  return (
-    <button
-      type="button"
-      onClick={() => login()}
-      disabled={isGlobalLoading || !isGoogleReady}
-      className="self-stretch w-full h-12 px-6 py-2 bg-white rounded-full outline outline-1 outline-offset-[-1px] outline-neutral-200 inline-flex justify-center items-center gap-2 overflow-hidden transition-all hover:bg-neutral-50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <img 
-        src="https://www.svgrepo.com/show/475656/google-color.svg" 
-        alt="Google Logo" 
-        className="w-5 h-5 shrink-0" 
-      />
-      <div className="justify-center text-black text-sm font-medium font-['Helvena'] leading-6">
-        {isGoogleReady ? "Sign up with Google" : "Loading Google..."}
-      </div>
-    </button>
-  );
-};
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -107,16 +74,15 @@ export default function RegisterPage() {
     }
   };
 
-  // --- GOOGLE SUCCESS HANDLER ---
-  const handleGoogleSuccess = async (tokenResponse: any) => {
+  // --- RESTORED GOOGLE SUCCESS HANDLER ---
+  const handleGoogleSuccess = async (credentialResponse: any) => {
     setError('');
     setIsLoading(true);
     
     try {
-      // Send the secure Google Token to your Node.js backend
-      // Uses access_token for custom buttons, falls back to credential just in case
+      // Send the secure Google ID Token (credential) to your Node.js backend
       const { data } = await api.post('/auth/google', {
-        tokenId: tokenResponse.access_token || tokenResponse.credential,
+        tokenId: credentialResponse.credential,
         preferredDomain: 'university'
       });
 
@@ -125,9 +91,7 @@ export default function RegisterPage() {
       // Update Redux with logged in user
       dispatch(setAuth(data.user));
       
-      // UX Note: Currently your backend doesn't return the `phone` field in `sendTokenResponse`.
-      // If you update your backend to return it, you can check `if (!data.user.phone)` here.
-      // For now, we will smoothly push them to the classroom.
+      // Navigate to dashboard
       router.push('/classroom');
 
     } catch (err: any) {
@@ -409,12 +373,17 @@ export default function RegisterPage() {
                     <div className="flex-1 h-[1px] bg-gray-300"></div>
                   </div>
 
-                  {/* CUSTOM GOOGLE LOGIN COMPONENT */}
-                  <div className="w-full flex justify-center">
-                    <CustomGoogleButton 
-                      onSuccess={handleGoogleSuccess} 
-                      onError={() => setError('Google popup was closed or failed.')} 
-                      isGlobalLoading={isLoading} 
+                  {/* OFFICIAL GOOGLE LOGIN COMPONENT */}
+                  <div className="w-full flex justify-center [&>div]:w-full">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => setError('Google login failed.')}
+                      useOneTap
+                      theme="outline"
+                      size="large"
+                      width="100%"
+                      text="signup_with"
+                      shape="pill"
                     />
                   </div>
 
