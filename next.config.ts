@@ -1,9 +1,14 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  allowedDevOrigins: [
-    "3000-01kged9ad9c3jgttw2y10wwqkw.cloudspaces.litng.ai"
-  ]
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        // Whenever the frontend calls /api/..., proxy it to Render
+        source: '/api/:path*',
+        destination: 'https://edvara-backend.onrender.com/api/:path*', 
+      },
+    ];
+  },
 };
 
 export default nextConfig;

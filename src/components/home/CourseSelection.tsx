@@ -328,7 +328,7 @@ export default function CourseSelection() {
                   )}
 
                   {step === 2 && (
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                       {selectedUni?.branches?.length > 0 ? (
                         selectedUni.branches.map((branch: string) => (
                           <button key={branch} onClick={() => handleBranchSelect(branch)} className={`p-5 md:p-8 rounded-2xl md:rounded-[28px] outline outline-1 outline-gray-200 hover:outline-[#FE6100]/30 hover:shadow-lg font-['Helvena'] text-base md:text-xl text-left font-semibold transition-all duration-300 flex justify-between items-center cursor-pointer group ${lastSelectedId === branch ? 'outline-2 outline-[#FE6100] bg-[#FE6100]/5 shadow-md' : 'bg-white'}`}>
