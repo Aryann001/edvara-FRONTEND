@@ -367,13 +367,17 @@ export default function CourseManagerPage() {
         </Link>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center flex-wrap gap-3 mb-2">
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${course.domain === 'coding' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
                 {course.domain}
               </span>
               {course.domain === 'university' && (
                 <span className={`text-xs font-semibold ${subTextColor}`}>{course.university?.name || course.universityName} • Sem {course.semester} • {course.branch}</span>
               )}
+              {/* NEW: Course ID Badge */}
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium tracking-wide bg-zinc-500/10 ${subTextColor}`}>
+                ID: {courseId}
+              </span>
             </div>
             <h1 className={`text-3xl sm:text-4xl font-['Libre_Baskerville'] italic ${textColor}`}>{course.title}</h1>
             <p className={`text-sm mt-2 ${subTextColor}`}>₹{course.price} {course.mrp > course.price && `(MRP: ₹${course.mrp})`}</p>
