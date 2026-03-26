@@ -226,7 +226,7 @@ export default function CourseSelection() {
             <div className="w-full flex flex-col items-center justify-center py-20 opacity-70">
               <BookX className="w-16 h-16 text-white/40 mb-4" />
               <h3 className="text-white text-xl md:text-2xl font-medium font-['Helvena']">New cohorts launching soon.</h3>
-              <p className="text-gray-400 mt-2">Stay tuned for upcoming AI and Full Stack programs.</p>
+              <p className="text-gray-400 text-center mt-2">Stay tuned for upcoming AI and Full Stack programs.</p>
             </div>
           )}
         </div>

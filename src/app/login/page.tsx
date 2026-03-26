@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store/hooks";
@@ -8,7 +8,40 @@ import { setAuth } from "@/store/slices/appSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import api from "@/services/api";
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'; // <-- NEW
+import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
+
+// --- CUSTOM GOOGLE BUTTON COMPONENT ---
+const CustomGoogleButton = ({ onSuccess, onError, isGlobalLoading }: { onSuccess: (res: any) => void, onError: () => void, isGlobalLoading: boolean }) => {
+  const [isGoogleReady, setIsGoogleReady] = useState(false);
+
+  // Simulating script readiness (Google's script usually loads instantly, but this prevents rapid-fire clicks before init)
+  useEffect(() => {
+    setIsGoogleReady(true);
+  }, []);
+
+  const login = useGoogleLogin({
+    onSuccess,
+    onError,
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => login()}
+      disabled={isGlobalLoading || !isGoogleReady}
+      className="self-stretch w-full h-12 px-6 py-2 bg-white rounded-full outline outline-1 outline-offset-[-1px] outline-neutral-200 inline-flex justify-center items-center gap-2 overflow-hidden transition-all hover:bg-neutral-50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <img 
+        src="https://www.svgrepo.com/show/475656/google-color.svg" 
+        alt="Google Logo" 
+        className="w-5 h-5 shrink-0" 
+      />
+      <div className="justify-center text-black text-sm font-medium font-['Helvena'] leading-6">
+        {isGoogleReady ? "Sign up with Google" : "Loading Google..."}
+      </div>
+    </button>
+  );
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,29 +73,22 @@ export default function LoginPage() {
     }
   };
 
-  // --- NEW: GOOGLE SUCCESS HANDLER ---
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  // --- GOOGLE SUCCESS HANDLER ---
+  const handleGoogleSuccess = async (tokenResponse: any) => {
     setError('');
     setIsLoading(true);
     
     try {
-      // Send the secure Google ID Token to your Node.js backend
+      // Send the secure Google Token to your Node.js backend
+      // Uses access_token for custom buttons, falls back to credential just in case
       const { data } = await api.post('/auth/google', {
-        tokenId: credentialResponse.credential,
+        tokenId: tokenResponse.access_token || tokenResponse.credential, 
         preferredDomain: 'university' // Or handle domain preference dynamically
       });
 
       if (!data) throw new Error('Google authentication failed');
 
-      // If the backend creates a NEW user via Google, they won't have a phone number yet.
-      // If your platform strictly requires a phone number, redirect them to the register page's phone step.
-      if (data.user && !data.user.phone) {
-         // Push to the register page and pass a query param to trigger the phone step
-         router.push('/register?needsPhone=true');
-         return; 
-      }
-
-      // Update Redux with logged in user
+      // Update Redux with logged in user and go straight to dashboard
       dispatch(setAuth(data.user));
       router.push('/classroom');
 
@@ -142,17 +168,12 @@ export default function LoginPage() {
                 )}
               </AnimatePresence>
 
-              {/* OFFICIAL GOOGLE LOGIN COMPONENT */}
+              {/* CUSTOM GOOGLE LOGIN COMPONENT */}
               <div className="w-full flex justify-center">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError('Google popup was closed or failed.')}
-                  useOneTap
-                  theme="outline"
-                  size="large"
-                  width="100%"
-                  text="signin_with"
-                  shape="rectangular"
+                <CustomGoogleButton 
+                  onSuccess={handleGoogleSuccess} 
+                  onError={() => setError('Google popup was closed or failed.')} 
+                  isGlobalLoading={isLoading} 
                 />
               </div>
 

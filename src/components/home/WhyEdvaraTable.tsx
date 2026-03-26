@@ -4,60 +4,94 @@ import React from "react";
 import { Check, X } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 
-const comparisonData = [
+// --- DATA DEFINITIONS ---
+
+const engineerData = [
   {
     feature: "Covers Your University Syllabus",
-    youtube: "dot",
-    chatgpt: "dot",
-    seniors: "Sometimes",
-    edvara: "check",
+    col1: "dot",
+    col2: "dot",
+    col3: "Sometimes",
   },
   {
     feature: "All subjects in one place",
-    youtube: "dot",
-    chatgpt: "dot",
-    seniors: "dot",
-    edvara: "check",
+    col1: "dot",
+    col2: "dot",
+    col3: "dot",
   },
   {
     feature: "Video + text notes together",
-    youtube: "Video only",
-    chatgpt: "Text only",
-    seniors: "Notes only",
-    edvara: "check",
+    col1: "Video only",
+    col2: "Text only",
+    col3: "Notes only",
   },
   {
     feature: "Exam-oriented coverage",
-    youtube: "Hit or miss",
-    chatgpt: "dot",
-    seniors: "Depends on senior",
-    edvara: "check",
+    col1: "Hit or miss",
+    col2: "dot",
+    col3: "Depends on senior",
   },
   {
     feature: "Hindi + English explanations",
-    youtube: "Some channels",
-    chatgpt: "dot",
-    seniors: "dot",
-    edvara: "check",
+    col1: "Some channels",
+    col2: "dot",
+    col3: "dot",
   },
   {
     feature: "Placement / coding skills included",
-    youtube: "dot",
-    chatgpt: "dot",
-    seniors: "dot",
-    edvara: "check",
+    col1: "dot",
+    col2: "dot",
+    col3: "dot",
   },
   {
     feature: "Updated every semester",
-    youtube: "dot",
-    chatgpt: "dot",
-    seniors: "dot",
-    edvara: "check",
+    col1: "dot",
+    col2: "dot",
+    col3: "dot",
+  },
+];
+
+const codingData = [
+  {
+    feature: "Structured roadmap",
+    col1: "dot",
+    col2: "dot",
+  },
+  {
+    feature: "DSA + Aptitude combo",
+    col1: "dot",
+    col2: "dot",
+  },
+  {
+    feature: "Placement-focused prep",
+    col1: "dot",
+    col2: "dot",
+  },
+  {
+    feature: "Real projects",
+    col1: "dot",
+    col2: "dot",
+  },
+  {
+    feature: "Doubt support",
+    col1: "dot",
+    col2: "dot",
+  },
+  {
+    feature: "Beginner to advanced path",
+    col1: "dot",
+    col2: "dot",
   },
 ];
 
 export default function WhyEdvaraTable() {
   const isCoding = useAppSelector((state) => state.app.isCodingDomain);
+
+  // Dynamic Logic
+  const comparisonData = isCoding ? codingData : engineerData;
+  const headers = isCoding 
+    ? ["YouTube", "Others"] 
+    : ["YouTube", "ChatGPT / PDFs", "Senior's notes"];
 
   // Theme Constants
   const sectionBg = isCoding ? "bg-[#161616]" : "bg-neutral-100";
@@ -117,7 +151,6 @@ export default function WhyEdvaraTable() {
 
         {/* Comparison Table Wrapper */}
         <div className="w-full relative flex flex-col items-start gap-6">
-          {/* ADDED touch-pan-y HERE to fix mobile vertical scroll trapping */}
           <div className="w-full overflow-x-auto no-scrollbar touch-pan-x touch-pan-y">
             <div
               className={`min-w-[940px] lg:min-w-full p-3 lg:p-8 ${tableBg} rounded-2xl lg:rounded-xl flex flex-col justify-start items-start shadow-sm border ${
@@ -134,16 +167,14 @@ export default function WhyEdvaraTable() {
                   </div>
                 </div>
                 <div className="flex-1 flex justify-start items-center">
-                  {["YouTube", "ChatGPT / PDFs", "Senior's notes"].map(
-                    (header) => (
-                      <div
-                        key={header}
-                        className={`flex-1 h-14 px-4 py-3 flex justify-center items-end ${textMain} text-base lg:text-lg font-medium font-['Helvena'] text-center`}
-                      >
-                        {header}
-                      </div>
-                    )
-                  )}
+                  {headers.map((header) => (
+                    <div
+                      key={header}
+                      className={`flex-1 h-14 px-4 py-3 flex justify-center items-end ${textMain} text-base lg:text-lg font-medium font-['Helvena'] text-center`}
+                    >
+                      {header}
+                    </div>
+                  ))}
                   <div className="flex-1 h-14 p-4 bg-[#FE6100] rounded-tl-xl rounded-tr-xl flex justify-center items-center gap-2">
                     <img
                       src="/edvaralogoforwhyedvara.svg"
@@ -172,8 +203,11 @@ export default function WhyEdvaraTable() {
                         {row.feature}
                       </div>
                       <div className="flex-1 self-stretch flex justify-start items-center">
-                        {[row.youtube, row.chatgpt, row.seniors].map(
-                          (val, i) => (
+                        {/* Map through columns 1 to N based on header length */}
+                        {headers.map((_, i) => {
+                           const key = `col${i+1}` as keyof typeof row;
+                           const val = row[key];
+                           return (
                             <div
                               key={i}
                               className="flex-1 h-full p-3 flex justify-center items-center"
@@ -191,8 +225,9 @@ export default function WhyEdvaraTable() {
                                 </span>
                               )}
                             </div>
-                          )
-                        )}
+                           )
+                        })}
+                        
                         <div
                           className={`flex-1 h-full p-3 bg-[#FE6100] flex justify-center items-center ${
                             index === comparisonData.length - 1

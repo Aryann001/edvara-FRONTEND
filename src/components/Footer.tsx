@@ -5,11 +5,40 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Instagram, Linkedin, Youtube } from 'lucide-react';
 
+// --- DATA CONFIGURATION ---
 const socialLinks = [
-  { icon: Instagram, href: "#", brandColor: "#E4405F" },
-  { icon: Linkedin, href: "#", brandColor: "#0A66C2" },
-  { icon: Youtube, href: "#", brandColor: "#FF0000" },
+  { icon: Instagram, href: "https://www.instagram.com/sachin.bhardwaaj", brandColor: "#E4405F" },
+  { icon: Linkedin, href: "https://www.linkedin.com/in/sachindwivedii", brandColor: "#0A66C2" },
+  { icon: Youtube, href: "https://www.youtube.com/@Btech.Junction", brandColor: "#FF0000" },
 ];
+
+const universities = [
+  "Rgpv MP", 
+  "AKTU UP", 
+  "IKGPTU Kapurthala", 
+  "LPU", 
+  "BEU Patna", 
+  "AKU Patna", 
+  "SPPU Pune", 
+  "SRM Chennai", 
+  "MU Mumbai"
+];
+
+const courseLinks = [
+  { name: "Java DSA", href: "#" },
+  { name: "Web Development", href: "#" },
+  { name: "Mobile App", href: "#" },
+  { name: "DSA", href: "#" },
+];
+
+const quickLinks = [
+  { name: "Free Resources", href: "#" },
+  { name: "Blogs", href: "#" },
+  { name: "Privacy Policy", href: "#" },
+  { name: "Terms & Conditions", href: "#" },
+  { name: "Refund Policy", href: "#" },
+];
+// --------------------------
 
 export default function Footer() {
   return (
@@ -61,6 +90,7 @@ export default function Footer() {
                   <motion.a
                     key={i}
                     href={social.href}
+                    target="_blank"
                     className="relative w-10 h-10 flex items-center justify-center rounded-full overflow-hidden group border border-white/10"
                     initial="initial"
                     whileHover="hover"
@@ -72,7 +102,7 @@ export default function Footer() {
                         initial: { scale: 0, opacity: 0 },
                         hover: { scale: 1, opacity: 1 }
                       }}
-                      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
                     />
                     <motion.div
                       className="relative z-10"
@@ -96,10 +126,13 @@ export default function Footer() {
           <div className="flex flex-col gap-6">
             <h4 className="text-white/40 text-[10px] md:text-xs font-normal uppercase tracking-[0.2em]">Universities</h4>
             <div className="flex flex-col gap-3">
-              {["Rgpv MP", "AKTU UP", "IKGPTU Kapurthala", "LPU", "BEU Patna", "AKU Patna", "SPPU Pune", "SRM Chennai", "MU Mumbai"].map((item) => (
-                <Link key={item} href="#" className="text-white/70 text-xs md:text-sm font-normal hover:text-[#FE6100] transition-colors whitespace-nowrap">
-                  {item}
-                </Link>
+              {universities.map((name, idx) => (
+                <span 
+                  key={idx} 
+                  className="text-white/70 text-xs md:text-sm font-normal hover:text-[#FE6100] transition-colors ease-in-out whitespace-nowrap cursor-default"
+                >
+                  {name}
+                </span>
               ))}
             </div>
           </div>
@@ -108,9 +141,9 @@ export default function Footer() {
           <div className="flex flex-col gap-6">
             <h4 className="text-white/40 text-[10px] md:text-xs font-normal uppercase tracking-[0.2em]">Courses</h4>
             <div className="flex flex-col gap-3">
-              {["Java DSA", "Web Development", "Mobile App", "DSA"].map((item) => (
-                <Link key={item} href="#" className="text-white/70 text-xs md:text-sm font-normal hover:text-[#FE6100] transition-colors">
-                  {item}
+              {courseLinks.map((item, idx) => (
+                <Link key={idx} href={item.href} className="text-white/70 text-xs md:text-sm font-normal hover:text-[#FE6100] transition-colors">
+                  {item.name}
                 </Link>
               ))}
             </div>
@@ -120,9 +153,9 @@ export default function Footer() {
           <div className="flex flex-col gap-6">
             <h4 className="text-white/40 text-[10px] md:text-xs font-normal uppercase tracking-[0.2em]">Quick Links</h4>
             <div className="flex flex-col gap-3">
-              {["Free Resources", "Blogs", "Privacy Policy", "Terms & Conditions", "Refund Policy"].map((item) => (
-                <Link key={item} href="#" className="text-white/70 text-xs md:text-sm font-normal hover:text-[#FE6100] transition-colors">
-                  {item}
+              {quickLinks.map((item, idx) => (
+                <Link key={idx} href={item.href} className="text-white/70 text-xs md:text-sm font-normal hover:text-[#FE6100] transition-colors">
+                  {item.name}
                 </Link>
               ))}
             </div>
@@ -135,8 +168,8 @@ export default function Footer() {
         <div className="w-full h-[1px] bg-white/5 mb-8" />
         <p className="text-white/40 text-[10px] md:text-sm font-normal text-center leading-loose">
           © 2026 Edvara. Built with ❤️ for Indian engineering students By{' '}
-          <Link href="#" className="text-white/80 hover:text-[#FE6100] underline underline-offset-4 decoration-white/20 transition-all">
-             Sachin Sir
+          <Link href="https://www.linkedin.com/in/sachindwivedii" target="_blank" className="text-white/80 hover:text-[#FE6100] underline underline-offset-4 decoration-white/20 transition-all duration-200">
+              Sachin Sir
           </Link>
         </p>
       </div>

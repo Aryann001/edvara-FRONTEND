@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Camera } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, Save, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setAuth } from '@/store/slices/appSlice';
 import api from '@/services/api';
@@ -20,20 +20,29 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // State and ref for the file upload
+  // State and ref for the file upload & saving
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   // Populate local state when user data loads
   useEffect(() => {
     if (user) {
-      const nameParts = user.name?.split(' ') || ['', ''];
+      const nameParts = user.name?.trim().split(' ') || ['', ''];
       setFirstName(nameParts[0] || '');
       setLastName(nameParts.slice(1).join(' ') || '');
       setPhone(user.phone || '');
       setEmail(user.email || '');
     }
   }, [user]);
+
+  // Check if form data differs from Redux state to enable/disable Save button
+  const currentFullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+  const hasChanges = 
+    currentFullName !== user?.name || 
+    email !== user?.email || 
+    phone !== (user?.phone || '');
 
   // --- THE UPLOAD HANDLER ---
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,7 +51,8 @@ export default function ProfilePage() {
 
     // Check file size (limit to 5MB on the frontend)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File is too large. Max size is 5MB.');
+      setMessage({ type: 'error', text: 'File is too large. Max size is 5MB.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
       return;
     }
 
@@ -50,6 +60,7 @@ export default function ProfilePage() {
     formData.append('avatar', file); 
 
     setIsUploading(true);
+    setMessage({ type: '', text: '' });
     try {
       const { data } = await api.put('/auth/avatar', formData, {
         headers: {
@@ -59,14 +70,51 @@ export default function ProfilePage() {
 
       // Update Redux state with the new avatar URL so the UI updates instantly
       dispatch(setAuth({ ...user, avatar: data.data.url }));
-      
+      setMessage({ type: 'success', text: 'Profile photo updated successfully!' });
     } catch (error: any) {
       console.error('Failed to upload image', error);
-      alert(error.response?.data?.message || 'Failed to upload image. Please try again.');
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to upload image.' });
     } finally {
       setIsUploading(false);
-      // Reset the input so the same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = ''; 
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+    }
+  };
+
+  // --- THE PROFILE SAVE HANDLER ---
+  const handleSaveChanges = async () => {
+    if (!hasChanges) return;
+    
+    setIsSaving(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      let updatedUser = { ...user };
+
+      // 1. Update Name & Email if changed
+      if (currentFullName !== user.name || email !== user.email) {
+        const { data } = await api.put('/auth/updatedetails', { 
+          name: currentFullName, 
+          email 
+        });
+        updatedUser = { ...updatedUser, ...data.data };
+      }
+
+      // 2. Update Phone if changed
+      if (phone !== (user.phone || '')) {
+        const { data } = await api.post('/auth/update-phone', { phone });
+        updatedUser = { ...updatedUser, ...data.user };
+      }
+
+      // Update Redux state
+      dispatch(setAuth(updatedUser));
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+    } catch (error: any) {
+      console.error('Failed to update profile', error);
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update profile details.' });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
     }
   };
 
@@ -91,12 +139,31 @@ export default function ProfilePage() {
         className="w-full max-w-[900px] mx-auto px-5 sm:px-8 md:px-12 flex flex-col justify-start items-center gap-8 md:gap-10"
       >
         
-        {/* Header - Left Aligned inside the centered container */}
-        <div className="w-full flex justify-start">
+        {/* Header */}
+        <div className="w-full flex justify-between items-end">
           <h1 className={`${textMain} text-2xl md:text-3xl font-bold`}>
             My Profile
           </h1>
         </div>
+
+        {/* Global Notification Banner */}
+        <AnimatePresence>
+          {message.text && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              className={`w-full p-4 rounded-xl border flex items-center gap-3 ${
+                message.type === 'success' 
+                  ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' 
+                  : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+              }`}
+            >
+              {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+              <span className="text-sm font-medium">{message.text}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="w-full flex flex-col justify-start items-start gap-8 md:gap-10">
           
@@ -113,7 +180,7 @@ export default function ProfilePage() {
                 
                 {/* Avatar Image */}
                 {user?.avatar ? (
-                  <img className="w-24 h-24 rounded-xl object-cover shadow-sm shrink-0" src={user.avatar} alt="Profile" />
+                  <img className="w-24 h-24 rounded-xl object-cover shadow-sm shrink-0" src={user.avatar.url || user.avatar} alt="Profile" />
                 ) : (
                   <div className="w-24 h-24 rounded-xl bg-orange-600 flex justify-center items-center shadow-sm shrink-0">
                     <span className="text-white text-4xl font-medium">
@@ -128,7 +195,7 @@ export default function ProfilePage() {
                   {/* Hidden File Input */}
                   <input 
                     type="file" 
-                    accept="image/png, image/jpeg, image/jpg" 
+                    accept="image/png, image/jpeg, image/jpg, image/webp" 
                     ref={fileInputRef} 
                     onChange={handleImageUpload} 
                     className="hidden" 
@@ -137,15 +204,19 @@ export default function ProfilePage() {
                   <button 
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className={`px-5 py-2 rounded-lg outline outline-1 outline-offset-[-1px] inline-flex justify-center items-center gap-2 overflow-hidden transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${btnBg}`}
+                    className={`px-5 py-2.5 rounded-lg outline outline-1 outline-offset-[-1px] inline-flex justify-center items-center gap-2 overflow-hidden transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${btnBg}`}
                   >
-                    <Camera className={`w-4 h-4 ${sectionTitleColor}`} />
+                    {isUploading ? (
+                      <Loader2 className={`w-4 h-4 animate-spin ${sectionTitleColor}`} />
+                    ) : (
+                      <Camera className={`w-4 h-4 ${sectionTitleColor}`} />
+                    )}
                     <span className={`justify-center ${sectionTitleColor} text-sm font-medium`}>
                       {isUploading ? 'Uploading...' : 'Update Photo'}
                     </span>
                   </button>
-                  <p className={`justify-start text-sm font-normal font-['Geist'] ${textSub}`}>
-                    Accepted formats: JPG, PNG (max 5 MB).
+                  <p className={`justify-start text-xs sm:text-sm font-normal font-['Geist'] ${textSub}`}>
+                    Accepted formats: JPG, PNG, WEBP (max 5 MB).
                   </p>
                 </div>
 
@@ -161,18 +232,18 @@ export default function ProfilePage() {
               Personal Information
             </h2>
 
-            <div className={`w-full p-5 rounded-xl outline outline-1 outline-offset-[-1px] flex flex-col gap-5 transition-colors ${cardBg}`}>
+            <div className={`w-full p-5 sm:p-6 rounded-xl outline outline-1 outline-offset-[-1px] flex flex-col gap-6 transition-colors ${cardBg}`}>
               
               {/* Row 1: Name (Responsive Grid) */}
-              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
                 <div className="w-full flex flex-col justify-start items-start gap-2">
                   <label className={`${sectionTitleColor} text-sm font-medium`}>First Name</label>
                   <input 
                     type="text" 
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Enter"
-                    className={`w-full h-11 px-3.5 py-1 rounded-lg outline outline-1 outline-offset-[-1px] flex items-center transition-all focus:outline-[#FE6100] ${inputBg} ${textSub} text-sm font-normal`}
+                    placeholder="Enter First Name"
+                    className={`w-full h-11 px-3.5 py-1 rounded-lg outline outline-1 outline-offset-[-1px] flex items-center transition-all focus:outline-2 focus:outline-[#FE6100] ${inputBg} ${textMain} text-sm font-medium placeholder:font-normal placeholder:opacity-50`}
                   />
                 </div>
                 <div className="w-full flex flex-col justify-start items-start gap-2">
@@ -181,22 +252,22 @@ export default function ProfilePage() {
                     type="text" 
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Enter"
-                    className={`w-full h-11 px-3.5 py-1 rounded-lg outline outline-1 outline-offset-[-1px] flex items-center transition-all focus:outline-[#FE6100] ${inputBg} ${textSub} text-sm font-normal`}
+                    placeholder="Enter Last Name"
+                    className={`w-full h-11 px-3.5 py-1 rounded-lg outline outline-1 outline-offset-[-1px] flex items-center transition-all focus:outline-2 focus:outline-[#FE6100] ${inputBg} ${textMain} text-sm font-medium placeholder:font-normal placeholder:opacity-50`}
                   />
                 </div>
               </div>
 
               {/* Row 2: Contact (Responsive Grid) */}
-              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
                 <div className="w-full flex flex-col justify-start items-start gap-2">
                   <label className={`${sectionTitleColor} text-sm font-medium`}>Phone Number</label>
                   <input 
                     type="tel" 
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter"
-                    className={`w-full h-11 px-3.5 py-1 rounded-lg outline outline-1 outline-offset-[-1px] flex items-center transition-all focus:outline-[#FE6100] ${inputBg} ${textSub} text-sm font-normal`}
+                    placeholder="Enter Phone Number"
+                    className={`w-full h-11 px-3.5 py-1 rounded-lg outline outline-1 outline-offset-[-1px] flex items-center transition-all focus:outline-2 focus:outline-[#FE6100] ${inputBg} ${textMain} text-sm font-medium placeholder:font-normal placeholder:opacity-50`}
                   />
                 </div>
                 <div className="w-full flex flex-col justify-start items-start gap-2">
@@ -205,34 +276,58 @@ export default function ProfilePage() {
                     type="email" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter"
-                    className={`w-full h-11 px-3.5 py-1 rounded-lg outline outline-1 outline-offset-[-1px] flex items-center transition-all focus:outline-[#FE6100] ${inputBg} ${textSub} text-sm font-normal`}
+                    placeholder="Enter Email"
+                    className={`w-full h-11 px-3.5 py-1 rounded-lg outline outline-1 outline-offset-[-1px] flex items-center transition-all focus:outline-2 focus:outline-[#FE6100] ${inputBg} ${textMain} text-sm font-medium placeholder:font-normal placeholder:opacity-50`}
                   />
                 </div>
+              </div>
+
+              {/* Save Action */}
+              <div className="w-full flex justify-end pt-2">
+                <button
+                  onClick={handleSaveChanges}
+                  disabled={!hasChanges || isSaving || !firstName || !email}
+                  className={`h-11 px-6 rounded-lg font-medium text-sm inline-flex items-center gap-2 transition-all active:scale-95 ${
+                    hasChanges && !isSaving && firstName && email
+                      ? 'bg-[#FE6100] hover:bg-[#e05600] text-white shadow-[0_4px_14px_rgba(254,97,0,0.3)]'
+                      : `${inputBg} ${textSub} cursor-not-allowed`
+                  }`}
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
 
             </div>
           </div>
 
           {/* ========================================== */}
-          {/* SECTION 3: YOUR LEARNING */}
+          {/* SECTION 3: PLATFORM PREFERENCES (Real Data) */}
           {/* ========================================== */}
           <div className="w-full flex flex-col justify-start items-start gap-3">
             <h2 className={`${sectionTitleColor} text-base font-medium font-['Geist'] leading-6`}>
-              Your Learning
+              Account Details
             </h2>
 
             <div className={`w-full p-5 rounded-xl outline outline-1 outline-offset-[-1px] transition-colors ${cardBg}`}>
               <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-5">
                 
                 <div className="flex flex-col justify-start items-start gap-1.5 sm:gap-2">
-                  <span className={`${textSub} text-sm font-normal`}>Courses Enrolled</span>
-                  <span className={`${sectionTitleColor} text-sm font-medium`}>3</span>
+                  <span className={`${textSub} text-sm font-normal`}>Account Role</span>
+                  <span className={`${sectionTitleColor} text-sm font-medium capitalize px-3 py-1 rounded-md ${inputBg}`}>
+                    {user?.role || 'User'}
+                  </span>
                 </div>
                 
                 <div className="flex flex-col justify-start items-start gap-1.5 sm:gap-2">
-                  <span className={`${textSub} text-sm font-normal`}>Currently learning</span>
-                  <span className={`${sectionTitleColor} text-sm font-medium`}>JAVA + DSA</span>
+                  <span className={`${textSub} text-sm font-normal`}>Preferred Domain</span>
+                  <span className={`${sectionTitleColor} text-sm font-medium capitalize px-3 py-1 rounded-md ${inputBg}`}>
+                    {user?.preferredDomain || 'Coding'}
+                  </span>
                 </div>
 
               </div>

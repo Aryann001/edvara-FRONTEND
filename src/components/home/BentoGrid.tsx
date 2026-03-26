@@ -4,23 +4,68 @@ import React from 'react';
 import { BookOpen, Laptop, Terminal, Briefcase, Youtube } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
 
-const previews = [
+const engineerPreviews = [
   {
     title: "Theory of Computation Full Course | BTech",
     stats: "62 videos • 100k+ views",
+    thumbnail: "/testimonial/t1.webp"
   },
   {
     title: "RGPV BTech 2nd Year | Guidance",
     stats: "28 videos • 50k+ views",
+    thumbnail: "/testimonial/t2.webp"
   },
   {
     title: "RGPV 2nd Year | Most Important Questions",
     stats: "5 videos • 34k+ views",
+    thumbnail: "/testimonial/t3.webp"
+  }
+];
+
+const codingPreviews = [
+  {
+    title: "Coding junction - Launch",
+    stats: "1 video • 4k+ views",
+    thumbnail: "/testimonial/t3.webp"
+  },
+  {
+    title: "Aptitude & Reasoning",
+    stats: "Coming Soon",
+    thumbnail: "/testimonial/t1.webp"
+  },
+  {
+    title: "Web Development",
+    stats: "Coming Soon",
+    thumbnail: "/testimonial/t1.webp"
   }
 ];
 
 const BentoGrid = () => {
   const isCoding = useAppSelector((state) => state.app.isCodingDomain);
+
+  // Dynamic Content Selection
+  const previews = isCoding ? codingPreviews : engineerPreviews;
+  const heroTitle = isCoding ? <>Beginner to<br />placement ready</> : <>Your journey<br />begins here</>;
+  const journeyTitle = isCoding ? "Your Coding Journey" : "From first semester to first job";
+  
+  // FIXED: Learners/Universities now on new line
+  const universityHeading = isCoding 
+    ? <><span className="text-[#FE6100]">Pan-India</span> <br /> Learners</> 
+    : <><span className="text-[#FE6100]">Pan-India</span> <br /> Universities</>;
+  
+  const journeySteps = isCoding 
+    ? [
+        { year: 'Step 1', text: 'Start with Basics', icon: <BookOpen size={16} /> },
+        { year: 'Step 2', text: 'Learn DSA', icon: <Laptop size={18} /> },
+        { year: 'Step 3', text: 'Build Projects', icon: <Terminal size={18} /> },
+        { year: 'Step 4', text: 'Crack Placement', icon: <Briefcase size={18} /> }
+      ]
+    : [
+        { year: 'Year 1', text: 'Foundations', icon: <BookOpen size={16} /> },
+        { year: 'Year 2', text: 'Core Engineering', icon: <Laptop size={18} /> },
+        { year: 'Year 3', text: 'Coding & Projects', icon: <Terminal size={18} /> },
+        { year: 'Year 4', text: 'Placement Ready', icon: <Briefcase size={18} /> }
+      ];
 
   // Theme Constants
   const sectionBg = isCoding ? 'bg-[#161616]' : 'bg-neutral-100';
@@ -30,9 +75,8 @@ const BentoGrid = () => {
   const borderTheme = isCoding ? 'border-white/5' : 'border-gray-100';
   const lineTheme = isCoding ? 'bg-neutral-800' : 'bg-neutral-100';
   
-  // The subtle radial gradient anchored top-left
   const sharedRadialBg = isCoding 
-    ? { background: 'radial-gradient(circle at top left, rgba(254, 97, 0, 0.15) 0%, #0c0a09 85%)' } // Darker base for Coding
+    ? { background: 'radial-gradient(circle at top left, rgba(254, 97, 0, 0.15) 0%, #0c0a09 85%)' } 
     : { background: 'radial-gradient(circle at top left, rgba(255, 223, 204, 0.15) 0%, #ffffff 85%)' };
 
   return (
@@ -57,6 +101,7 @@ const BentoGrid = () => {
             background: 'var(--hero-bg)' 
           }}
         >
+          {/* RESTORED ORIGINAL GRADIENTS */}
           <style jsx>{`
             div {
               --hero-bg: radial-gradient(rgb(255, 223, 204) 0%, #FE6100 100%);
@@ -71,7 +116,6 @@ const BentoGrid = () => {
           <div className="relative z-10 flex flex-col items-center gap-6 lg:gap-1 w-full">
             <img src="/whitelogoforbentogrid.svg" alt="Edvara" className="w-28 md:w-40 h-auto" />
             
-            {/* Circle Area with Horizontal Line behind (Mobile Only) */}
             <div className="lg:hidden relative w-full flex items-center justify-center shrink-0">
                <div className={`absolute w-screen h-[25px] ${lineTheme} z-0`} />
                <div className={`relative w-52 h-52 rounded-full border-[15px] ${isCoding ? 'border-stone-900' : 'border-neutral-100'} bg-white overflow-hidden z-10 shadow-none`}>
@@ -80,7 +124,7 @@ const BentoGrid = () => {
             </div>
 
             <h2 className="text-white text-4xl md:text-6xl font-normal leading-tight">
-              Your journey<br />begins here
+              {heroTitle}
             </h2>
           </div>
         </div>
@@ -110,18 +154,18 @@ const BentoGrid = () => {
             </div>
           </div>
 
-          {/* Box 3: Universities */}
+          {/* Box 3: Universities / Learners */}
           <div 
             className={`flex-1 lg:col-span-3 lg:order-3 ${cardBg} rounded-3xl p-5 md:p-8 flex flex-col justify-between relative overflow-hidden shadow-sm border ${borderTheme} min-h-[220px] md:min-h-[320px]`}
             style={sharedRadialBg}
           >
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#FE6100]/10 rounded-full blur-[80px] hidden lg:block" />
             <div className="relative h-full flex flex-col justify-between z-10">
-              <h3 className="text-sm md:text-2xl font-bold leading-tight"><span className="text-[#FE6100]">Pan-India</span> Universities</h3>
+              <h3 className="text-sm md:text-2xl font-bold leading-tight">{universityHeading}</h3>
               <div className="flex flex-col gap-3 mt-auto">
-                <p className={`${textMain} text-[10px] md:text-sm font-normal font-['Helvena']`}>20+ Universities</p>
+                <p className={`${textMain} text-[10px] md:text-sm font-normal font-['Helvena']`}>{isCoding ? 'Step-by-step Path' : '20+ Universities'}</p>
                 <div className="flex flex-wrap gap-1">
-                  {['RGPV', 'BITS', 'SRM', 'VIT', 'LPU', '+15'].map((u) => (
+                  {(isCoding ? ['Basics', 'DSA', 'Projects', 'Placement'] : ['RGPV', 'BITS', 'SRM', 'VIT', 'LPU', '+15']).map((u) => (
                     <span key={u} className={`px-4 py-1 ${isCoding ? 'bg-white text-stone-950' : 'bg-black text-white'} rounded-full text-[8px] md:text-xs`}>{u}</span>
                   ))}
                 </div>
@@ -144,8 +188,8 @@ const BentoGrid = () => {
         >
            <div className="flex justify-between items-start w-full relative z-10 mb-8 lg:mb-0 lg:mt-auto">
               <div className="flex flex-col lg:relative lg:z-20">
-                <h3 className={`text-5xl font-semibold leading-none ${textMain}`}>60+</h3>
-                <p className="text-[#FE6100] text-sm md:text-xl font-medium mt-1 uppercase">Engineering & Coding Courses</p>
+                <h3 className={`text-5xl font-semibold leading-none ${textMain}`}>{isCoding ? '10+' : '60+'}</h3>
+                <p className="text-[#FE6100] text-sm md:text-xl font-medium mt-1 uppercase">{isCoding ? 'Coding & Placement Courses coming' : 'Engineering & Coding Courses'}</p>
               </div>
               <div className="w-20 h-20 md:w-28 md:h-28 lg:absolute lg:bottom-0 lg:right-0 shrink-0">
                 <img className={`w-full h-full object-contain rounded-lg`} src="/4rdgridmeme.png" alt="meme" />
@@ -178,8 +222,8 @@ const BentoGrid = () => {
                       }
                     }
                   `}</style>
-                  <div className="w-14 h-9 md:w-20 md:h-12 bg-neutral-800/50 rounded-lg flex items-center justify-center shrink-0">
-                    <Youtube className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
+                  <div className="w-14 h-9 md:w-20 md:h-12 bg-neutral-800 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+                    <img src={item.thumbnail} alt="thumbnail" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0 pr-2">
                     <h4 className={`${textMain} text-[10px] md:text-sm font-semibold truncate`}>{item.title}</h4>
@@ -197,17 +241,12 @@ const BentoGrid = () => {
           style={sharedRadialBg}
         >
            <div className="flex flex-col mb-8 md:mb-10">
-              <h3 className={`text-2xl md:text-3xl font-bold ${textMain}`}>4-Year Journey</h3>
-              <p className="text-[#FE6100] text-sm md:text-xl font-medium">From first semester to first job</p>
+              <h3 className={`text-2xl md:text-3xl font-bold ${textMain}`}>{isCoding ? '4 - Steps' : '4-Year Journey'}</h3>
+              <p className="text-[#FE6100] text-sm md:text-xl font-medium">{journeyTitle}</p>
            </div>
            <div className="flex flex-col gap-6 md:gap-10 relative pl-1">
               <div className="absolute left-[20px] md:left-[25px] top-6 bottom-6 w-0 border-l-[3px] border-dashed border-[#FE6100]/50" />
-              {[
-                { year: 'Year 1', text: 'Foundations', icon: <BookOpen size={16} /> },
-                { year: 'Year 2', text: 'Core Engineering', icon: <Laptop size={18} /> },
-                { year: 'Year 3', text: 'Coding & Projects', icon: <Terminal size={18} /> },
-                { year: 'Year 4', text: 'Placement Ready', icon: <Briefcase size={18} /> }
-              ].map((step, i) => (
+              {journeySteps.map((step, i) => (
                 <div key={i} className="flex items-center gap-6 md:gap-8 relative z-10">
                   <div className={`${isCoding ? 'bg-white text-stone-950' : 'bg-black text-white'} w-10 h-10 md:w-11 md:h-11 rounded-lg flex items-center justify-center shadow-lg shrink-0`}>
                     {step.icon}

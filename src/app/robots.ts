@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/dashboard/', '/api/'], // Protect admin routes and APIs
     },
-    sitemap: 'https://www.edvara.com/sitemap.xml', // Replace with your actual domain
+    sitemap: 'https://www.edvara.in/sitemap.xml', // Replace with your actual domain
   }
 }

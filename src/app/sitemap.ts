@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
  
 export default function sitemap(): MetadataRoute.Sitemap {
   // Replace with your actual production URL
-  const baseUrl = 'https://www.edvara.com'; 
+  const baseUrl = 'https://edvara.in'; 
 
   return [
     {
