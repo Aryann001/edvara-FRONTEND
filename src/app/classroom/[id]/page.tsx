@@ -10,7 +10,7 @@ import {
   FileText, Download, Loader2, AlertCircle, Maximize, Settings, 
   Play, Pause, Volume2, VolumeX, Gauge
 } from 'lucide-react';
-import { Stream } from "@cloudflare/stream-react"; // <-- ADDED
+import { Stream } from "@cloudflare/stream-react"; 
 
 export default function CoursePlayerPage() {
   const { id: courseId } = useParams();
@@ -23,28 +23,25 @@ export default function CoursePlayerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Custom Toast State
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
 
-  // Enrollment & Progress State
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [completedLectures, setCompletedLectures] = useState<string[]>([]);
 
-  // Player States
   const [activeLecture, setActiveLecture] = useState<any>(null);
   const [obfuscatedVideoUrl, setObfuscatedVideoUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'notes' | 'pyqs'>('content');
   const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>({});
   
-  // Anti-Piracy Watermark State (Split into ID and IP/Loc)
+  // Anti-Piracy States
   const [watermarkId, setWatermarkId] = useState({ top: '10%', left: '10%', scale: 1, visible: false, trace: null as any });
   const [watermarkIp, setWatermarkIp] = useState({ top: '80%', left: '80%', scale: 1, visible: false });
+  const [isObscured, setIsObscured] = useState(false); 
   
-  // Stealth IP & Location Tracking
   const [silentIp, setSilentIp] = useState<string>('Tracking...');
   const [geoCoords, setGeoCoords] = useState<string>('Locating...');
 
-  // Custom Video Player States
+  // Legacy Video Player States
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -65,17 +62,14 @@ export default function CoursePlayerPage() {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
   };
 
-  // --- SILENT IP & GEO-LOCATION TRACKING (No Permissions Needed) ---
   useEffect(() => {
     const fetchSilentLocation = async () => {
       try {
         const response = await fetch('https://ipinfo.io/json');
         const data = await response.json();
-        
         setSilentIp(data.ip || 'IP Hidden');
-        
         if (data.loc) {
-          setGeoCoords(data.loc); // Returns "latitude,longitude"
+          setGeoCoords(data.loc); 
         } else {
           setGeoCoords('Location Hidden');
         }
@@ -87,7 +81,6 @@ export default function CoursePlayerPage() {
     fetchSilentLocation();
   }, []);
 
-  // --- 1. INITIAL DATA & ENROLLMENT FETCH ---
   useEffect(() => {
     if (!courseId) return;
 
@@ -138,7 +131,6 @@ export default function CoursePlayerPage() {
     fetchCourseAndEnrollment();
   }, [courseId, user]);
 
-  // --- RESPONSIVE TAB DEFAULTS ---
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) setActiveTab('notes');
@@ -149,7 +141,6 @@ export default function CoursePlayerPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- 2. VIDEO URL OBFUSCATION LOGIC ---
   const obfuscateVideo = async (realUrl: string) => {
     try {
       if (obfuscatedVideoUrl) URL.revokeObjectURL(obfuscatedVideoUrl);
@@ -158,12 +149,10 @@ export default function CoursePlayerPage() {
       const blobUrl = URL.createObjectURL(blob);
       setObfuscatedVideoUrl(blobUrl);
     } catch (error) {
-      console.error("Failed to obfuscate video, falling back to secure direct link.", error);
       setObfuscatedVideoUrl(realUrl); 
     }
   };
 
-  // --- STRICT LECTURE SELECTION ---
   const handleSelectLecture = async (lectureMeta: any, currentEnrollmentStatus: boolean = isEnrolled) => {
     if (!lectureMeta.isFree && !currentEnrollmentStatus) {
       showToast("This lecture is locked. Please enroll in the course to access it.", "error");
@@ -176,7 +165,6 @@ export default function CoursePlayerPage() {
         setActiveLecture(data.data);
         setWatermarkId(prev => ({ ...prev, trace: data.trace })); 
         
-        // Only obfuscate if it's an old legacy URL. Cloudflare Streams are already perfectly secure!
         if (data.data.videoUrl && !data.data.cloudflareUid) {
           await obfuscateVideo(data.data.videoUrl);
         }
@@ -196,44 +184,68 @@ export default function CoursePlayerPage() {
     };
   }, [obfuscatedVideoUrl]);
 
-  // --- ANTI-PIRACY & SCREEN RECORDING PREVENTION ---
+  // --- ADVANCED ANTI-PIRACY & SMART BLACKOUT ---
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     
     const handleKeyDownSecurity = (e: KeyboardEvent) => {
+      // Intercepts F12, Inspect Element, PrintScreen, and Snipping Tool Keys
       if (
         e.key === 'F12' || 
         (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
         (e.ctrlKey && e.key === 'u') ||
-        e.key === 'PrintScreen'
+        e.key === 'PrintScreen' ||
+        e.key === 'Meta' // Windows/Mac key often used for snipping tools
       ) {
         e.preventDefault();
+        setIsObscured(true); 
+        
+        // Corrupt clipboard if they try to screenshot
+        if (e.key === 'PrintScreen') {
+          navigator.clipboard.writeText("Screenshots are disabled for secure content.").catch(() => {});
+        }
+        
+        setTimeout(() => setIsObscured(false), 3000); 
       }
     };
 
     const handleVisibilityChange = () => {
-      if (document.hidden && videoRef.current && isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
+      if (document.hidden) {
+        if (videoRef.current && isPlaying) videoRef.current.pause();
+        setIsObscured(true); 
+      } else {
+        setIsObscured(false);
       }
     };
 
+    const handleBlur = () => {
+      setIsObscured(true);
+      if (videoRef.current && isPlaying) videoRef.current.pause();
+    };
+
+    const handleFocus = () => {
+      setIsObscured(false);
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDownSecurity);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDownSecurity);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isPlaying]);
 
-  // --- SPLIT DYNAMIC WATERMARKS (Smooth & Cinematic) ---
+  // --- SPLIT DYNAMIC WATERMARKS ---
   useEffect(() => {
     if (!activeLecture || !watermarkId.trace) return;
     
-    // Watermark 1: The User ID (Triggers every 25 seconds)
     const intervalId = setInterval(() => {
       setWatermarkId(prev => ({
         ...prev,
@@ -242,12 +254,9 @@ export default function CoursePlayerPage() {
         scale: Math.random() * 0.1 + 0.95,
         visible: true
       }));
-      
-      // Stays visible for 8 seconds
       setTimeout(() => setWatermarkId(prev => ({ ...prev, visible: false })), 8000);
     }, 25000); 
 
-    // Watermark 2: The User IP & Loc (Triggers every 35 seconds, offset from ID)
     const intervalIp = setInterval(() => {
       setWatermarkIp(prev => ({
         ...prev,
@@ -256,8 +265,6 @@ export default function CoursePlayerPage() {
         scale: Math.random() * 0.1 + 0.95,
         visible: true
       }));
-      
-      // Stays visible for 8 seconds
       setTimeout(() => setWatermarkIp(prev => ({ ...prev, visible: false })), 8000);
     }, 35000);
 
@@ -268,7 +275,7 @@ export default function CoursePlayerPage() {
   }, [activeLecture, watermarkId.trace]);
 
   // ==========================================
-  // CUSTOM VIDEO PLAYER LOGIC
+  // LEGACY VIDEO PLAYER LOGIC (For Cloudinary Fallbacks)
   // ==========================================
   const formatTime = (timeInSeconds: number) => {
     if (isNaN(timeInSeconds)) return '0:00';
@@ -335,36 +342,6 @@ export default function CoursePlayerPage() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  useEffect(() => {
-    const handlePlayerKeyDown = (e: KeyboardEvent) => {
-      if (!activeLecture) return;
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-
-      switch(e.key) {
-        case ' ':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'ArrowRight':
-          if (videoRef.current) videoRef.current.currentTime += 10;
-          break;
-        case 'ArrowLeft':
-          if (videoRef.current) videoRef.current.currentTime -= 10;
-          break;
-        case 'f':
-        case 'F':
-          toggleFullscreen();
-          break;
-        case 'm':
-        case 'M':
-          toggleMute();
-          break;
-      }
-    };
-    window.addEventListener('keydown', handlePlayerKeyDown);
-    return () => window.removeEventListener('keydown', handlePlayerKeyDown);
-  }, [activeLecture, isPlaying, isMuted]);
-
   const handleMouseMove = () => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -385,14 +362,12 @@ export default function CoursePlayerPage() {
     }
   };
 
-  // --- PROGRESS TRACKING & AUTONEXT INTEGRATION ---
   const handleVideoEnd = async () => {
     setIsPlaying(false);
     setShowControls(true);
     
     let updatedCompleted = [...completedLectures];
 
-    // 1. Save Progress
     if (isEnrolled && activeLecture) {
       try {
         const { data } = await api.post(`/courses/${courseId}/progress`, { lectureId: activeLecture._id });
@@ -405,7 +380,6 @@ export default function CoursePlayerPage() {
       }
     }
 
-    // 2. Autoplay Next Logic
     if (course && course.lectures && activeLecture) {
       const currentIndex = course.lectures.findIndex((l: any) => l._id === activeLecture._id);
       
@@ -436,7 +410,6 @@ export default function CoursePlayerPage() {
   const cardBg = isCoding ? "bg-[#1C1C1C] border border-white/10 shadow-lg" : "bg-white shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-gray-100";
   const innerBg = isCoding ? "bg-white/5" : "bg-neutral-100";
 
-  // --- SKELETON LOADER ---
   if (isLoading) {
     const pulseBg = isCoding ? "bg-white/5" : "bg-gray-200";
     return (
@@ -559,7 +532,6 @@ export default function CoursePlayerPage() {
         {/* LEFT COLUMN: PLAYER */}
         <div className="flex-1 w-full flex flex-col gap-6 lg:gap-8">
           
-          {/* ADVANCED CUSTOM VIDEO PLAYER */}
           <div 
             ref={playerContainerRef}
             onMouseMove={handleMouseMove}
@@ -570,115 +542,121 @@ export default function CoursePlayerPage() {
           >
             {activeLecture ? (
               <>
-                {/* PRESERVED: Backward compatibility for Cloudinary + Native Cloudflare Support */}
+                {/* --- SECURE BLACKOUT OVERLAY --- */}
+                <AnimatePresence>
+                  {isObscured && (
+                    <motion.div 
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+                      className="absolute inset-0 z-[60] bg-black flex flex-col items-center justify-center text-white cursor-pointer"
+                      onClick={() => setIsObscured(false)}
+                    >
+                      <Lock className="w-12 h-12 mb-4 text-[#FE6100]" />
+                      <h2 className="text-lg md:text-xl font-bold tracking-widest font-['Helvena']">SECURE PLAYBACK</h2>
+                      <p className="text-xs md:text-sm mt-2 opacity-70">Video paused to protect content. Click to resume.</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {activeLecture.cloudflareUid ? (
+                  // --- NETFLIX-LEVEL NATIVE CLOUDFLARE PLAYER ---
+                  // Includes Resolution Selector, Auto-Bitrate, PIP, AirPlay, and Cast natively!
                   <Stream
-                    streamRef={videoRef as any}
                     src={activeLecture.cloudflareUid}
-                    onTimeUpdate={handleTimeUpdate}
-                    onLoadedData={handleLoadedMetadata}
-                    onEnded={handleVideoEnd}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                    controls={false}
+                    controls={true} // Enables the advanced native UI
                     responsive={false}
                     autoplay
+                    primaryColor="#FE6100" // Branded to Edvara
                     className="w-full h-full object-cover absolute inset-0 z-0"
+                    onEnded={handleVideoEnd}
                   />
                 ) : (
-                  <video 
-                    ref={videoRef}
-                    src={obfuscatedVideoUrl || activeLecture.videoUrl} 
-                    onTimeUpdate={handleTimeUpdate}
-                    onLoadedMetadata={handleLoadedMetadata}
-                    onEnded={handleVideoEnd}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                    controlsList="nodownload nofullscreen noremoteplayback"
-                    disablePictureInPicture
-                    className="w-full h-full object-cover absolute inset-0 z-0"
-                    autoPlay
-                  />
-                )}
-                
-                {/* Invisible Click Catcher: Prevents Cloudflare iframe from stealing focus */}
-                <div 
-                  className="absolute inset-0 z-10 cursor-pointer"
-                  onClick={() => {
-                    if (showSettings) setShowSettings(false);
-                    else togglePlay();
-                  }}
-                />
-                
-                {/* Custom Controls Overlay */}
-                <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 z-20 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
-                  
-                  {/* Scrubber */}
-                  <div className="w-full flex items-center mb-4 relative z-30">
-                    <input 
-                      type="range" min="0" max="100" value={progress}
-                      onChange={handleSeek}
-                      className="w-full h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-[#FE6100]"
-                      style={{ background: `linear-gradient(to right, #FE6100 ${progress}%, rgba(255,255,255,0.3) ${progress}%)` }}
+                  // --- LEGACY CLOUDINARY PLAYER (With Custom Controls) ---
+                  <>
+                    <video 
+                      ref={videoRef}
+                      src={obfuscatedVideoUrl || activeLecture.videoUrl} 
+                      onTimeUpdate={handleTimeUpdate}
+                      onLoadedMetadata={handleLoadedMetadata}
+                      onEnded={handleVideoEnd}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      controlsList="nodownload nofullscreen noremoteplayback"
+                      disablePictureInPicture
+                      className="w-full h-full object-cover absolute inset-0 z-0"
+                      autoPlay
                     />
-                  </div>
-
-                  {/* Buttons */}
-                  <div className="flex justify-between items-center text-white relative z-30">
                     
-                    <div className="flex items-center gap-5">
-                      <button onClick={togglePlay} className="hover:text-[#FE6100] transition-colors focus:outline-none">
-                        {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
-                      </button>
-                      
-                      <button onClick={toggleMute} className="hover:text-[#FE6100] transition-colors focus:outline-none">
-                        {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                      </button>
-                      
-                      <span className="text-xs sm:text-sm font-medium tracking-wider opacity-90 hidden sm:block">
-                        {currentTime} <span className="opacity-50 mx-1">/</span> {duration}
-                      </span>
-                    </div>
+                    <div 
+                      className="absolute inset-0 z-10 cursor-pointer"
+                      onClick={() => {
+                        if (showSettings) setShowSettings(false);
+                        else togglePlay();
+                      }}
+                    />
+                    
+                    <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 z-20 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
+                      <div className="w-full flex items-center mb-4 relative z-30">
+                        <input 
+                          type="range" min="0" max="100" value={progress}
+                          onChange={handleSeek}
+                          className="w-full h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-[#FE6100]"
+                          style={{ background: `linear-gradient(to right, #FE6100 ${progress}%, rgba(255,255,255,0.3) ${progress}%)` }}
+                        />
+                      </div>
 
-                    <div className="flex items-center gap-5 relative">
-                      
-                      {/* Settings Menu Popup */}
-                      <AnimatePresence>
-                        {showSettings && (
-                          <motion.div 
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            className="absolute bottom-full right-10 mb-4 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg p-2 min-w-[140px] flex flex-col gap-1 z-50"
-                          >
-                            <div className="px-3 py-2 text-xs text-white/50 uppercase tracking-wider font-semibold border-b border-white/10 mb-1 flex items-center gap-2">
-                              <Gauge className="w-3 h-3" /> Speed
-                            </div>
-                            {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
-                              <button 
-                                key={rate} 
-                                onClick={() => handlePlaybackRateChange(rate)}
-                                className={`w-full text-left px-3 py-2 text-sm rounded transition-colors ${playbackRate === rate ? 'bg-[#FE6100]/20 text-[#FE6100] font-medium' : 'text-white hover:bg-white/10'}`}
+                      <div className="flex justify-between items-center text-white relative z-30">
+                        <div className="flex items-center gap-5">
+                          <button onClick={togglePlay} className="hover:text-[#FE6100] transition-colors focus:outline-none">
+                            {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
+                          </button>
+                          
+                          <button onClick={toggleMute} className="hover:text-[#FE6100] transition-colors focus:outline-none">
+                            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                          </button>
+                          
+                          <span className="text-xs sm:text-sm font-medium tracking-wider opacity-90 hidden sm:block">
+                            {currentTime} <span className="opacity-50 mx-1">/</span> {duration}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-5 relative">
+                          <AnimatePresence>
+                            {showSettings && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                className="absolute bottom-full right-10 mb-4 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg p-2 min-w-[140px] flex flex-col gap-1 z-50"
                               >
-                                {rate === 1 ? 'Normal' : `${rate}x`}
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                                <div className="px-3 py-2 text-xs text-white/50 uppercase tracking-wider font-semibold border-b border-white/10 mb-1 flex items-center gap-2">
+                                  <Gauge className="w-3 h-3" /> Speed
+                                </div>
+                                {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                                  <button 
+                                    key={rate} 
+                                    onClick={() => handlePlaybackRateChange(rate)}
+                                    className={`w-full text-left px-3 py-2 text-sm rounded transition-colors ${playbackRate === rate ? 'bg-[#FE6100]/20 text-[#FE6100] font-medium' : 'text-white hover:bg-white/10'}`}
+                                  >
+                                    {rate === 1 ? 'Normal' : `${rate}x`}
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
 
-                      <button 
-                        onClick={() => setShowSettings(!showSettings)} 
-                        className={`transition-colors focus:outline-none ${showSettings ? 'text-[#FE6100]' : 'text-white opacity-80 hover:opacity-100'}`}
-                      >
-                        <Settings className="w-5 h-5" />
-                      </button>
+                          <button 
+                            onClick={() => setShowSettings(!showSettings)} 
+                            className={`transition-colors focus:outline-none ${showSettings ? 'text-[#FE6100]' : 'text-white opacity-80 hover:opacity-100'}`}
+                          >
+                            <Settings className="w-5 h-5" />
+                          </button>
 
-                      <button onClick={toggleFullscreen} className="hover:text-[#FE6100] transition-colors focus:outline-none opacity-80 hover:opacity-100">
-                        <Maximize className="w-5 h-5" />
-                      </button>
-
+                          <button onClick={toggleFullscreen} className="hover:text-[#FE6100] transition-colors focus:outline-none opacity-80 hover:opacity-100">
+                            <Maximize className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
 
                 {/* Secure Watermark Overlay 1: ID */}
                 <AnimatePresence>
