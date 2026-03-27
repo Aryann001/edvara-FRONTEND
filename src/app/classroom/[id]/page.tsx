@@ -698,16 +698,17 @@ export default function CoursePlayerPage() {
 
                 {activeLecture.cloudflareUid ? (
                   // --- NETFLIX-LEVEL NATIVE CLOUDFLARE PLAYER ---
-                  // Added w-full h-full to make it fill the container perfectly!
-                  <Stream
-                    src={activeLecture.cloudflareUid}
-                    controls={true}
-                    responsive={false}
-                    autoplay
-                    primaryColor="#FE6100"
-                    className="w-full h-full object-cover absolute inset-0 z-0"
-                    onEnded={handleVideoEnd}
-                  />
+                  <div className="absolute inset-0 w-full h-full flex z-0">
+                    <Stream
+                      src={activeLecture.cloudflareUid}
+                      controls={true}
+                      responsive={false}
+                      autoplay
+                      primaryColor="#FE6100"
+                      onEnded={handleVideoEnd}
+                      className="w-full h-full"
+                    />
+                  </div>
                 ) : (
                   // --- LEGACY CLOUDINARY PLAYER (With Custom Controls) ---
                   <>
