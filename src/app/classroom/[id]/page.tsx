@@ -10,6 +10,7 @@ import {
   FileText, Download, Loader2, AlertCircle, Maximize, Settings, 
   Play, Pause, Volume2, VolumeX, Gauge
 } from 'lucide-react';
+import { Stream } from "@cloudflare/stream-react"; // <-- ADDED
 
 export default function CoursePlayerPage() {
   const { id: courseId } = useParams();
@@ -175,7 +176,8 @@ export default function CoursePlayerPage() {
         setActiveLecture(data.data);
         setWatermarkId(prev => ({ ...prev, trace: data.trace })); 
         
-        if (data.data.videoUrl) {
+        // Only obfuscate if it's an old legacy URL. Cloudflare Streams are already perfectly secure!
+        if (data.data.videoUrl && !data.data.cloudflareUid) {
           await obfuscateVideo(data.data.videoUrl);
         }
 
@@ -568,29 +570,51 @@ export default function CoursePlayerPage() {
           >
             {activeLecture ? (
               <>
-                <video 
-                  ref={videoRef}
-                  src={obfuscatedVideoUrl || activeLecture.videoUrl} 
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={handleLoadedMetadata}
-                  onEnded={handleVideoEnd}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
+                {/* PRESERVED: Backward compatibility for Cloudinary + Native Cloudflare Support */}
+                {activeLecture.cloudflareUid ? (
+                  <Stream
+                    streamRef={videoRef as any}
+                    src={activeLecture.cloudflareUid}
+                    onTimeUpdate={handleTimeUpdate}
+                    onLoadedData={handleLoadedMetadata}
+                    onEnded={handleVideoEnd}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    controls={false}
+                    responsive={false}
+                    autoplay
+                    className="w-full h-full object-cover absolute inset-0 z-0"
+                  />
+                ) : (
+                  <video 
+                    ref={videoRef}
+                    src={obfuscatedVideoUrl || activeLecture.videoUrl} 
+                    onTimeUpdate={handleTimeUpdate}
+                    onLoadedMetadata={handleLoadedMetadata}
+                    onEnded={handleVideoEnd}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    controlsList="nodownload nofullscreen noremoteplayback"
+                    disablePictureInPicture
+                    className="w-full h-full object-cover absolute inset-0 z-0"
+                    autoPlay
+                  />
+                )}
+                
+                {/* Invisible Click Catcher: Prevents Cloudflare iframe from stealing focus */}
+                <div 
+                  className="absolute inset-0 z-10 cursor-pointer"
                   onClick={() => {
                     if (showSettings) setShowSettings(false);
                     else togglePlay();
                   }}
-                  controlsList="nodownload nofullscreen noremoteplayback"
-                  disablePictureInPicture
-                  className="w-full h-full object-cover cursor-pointer"
-                  autoPlay
                 />
                 
                 {/* Custom Controls Overlay */}
-                <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
+                <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 z-20 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
                   
                   {/* Scrubber */}
-                  <div className="w-full flex items-center mb-4">
+                  <div className="w-full flex items-center mb-4 relative z-30">
                     <input 
                       type="range" min="0" max="100" value={progress}
                       onChange={handleSeek}
@@ -600,7 +624,7 @@ export default function CoursePlayerPage() {
                   </div>
 
                   {/* Buttons */}
-                  <div className="flex justify-between items-center text-white relative">
+                  <div className="flex justify-between items-center text-white relative z-30">
                     
                     <div className="flex items-center gap-5">
                       <button onClick={togglePlay} className="hover:text-[#FE6100] transition-colors focus:outline-none">
@@ -665,7 +689,7 @@ export default function CoursePlayerPage() {
                       exit={{ opacity: 0, scale: 1.05 }}
                       transition={{ ease: "easeInOut", duration: 2 }}
                       style={{ top: watermarkId.top, left: watermarkId.left }}
-                      className="absolute z-10 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
+                      className="absolute z-30 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
                     >
                       <span className="text-white text-xs md:text-sm font-mono tracking-widest px-2 py-1 rounded">
                         ID: {watermarkId.trace.viewerId || user?._id || user?.id || 'GUEST'}
@@ -683,7 +707,7 @@ export default function CoursePlayerPage() {
                       exit={{ opacity: 0, scale: 1.05 }}
                       transition={{ ease: "easeInOut", duration: 2 }}
                       style={{ top: watermarkIp.top, left: watermarkIp.left }}
-                      className="absolute z-10 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
+                      className="absolute z-30 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
                     >
                       <span className="text-white text-[10px] md:text-xs font-mono tracking-widest px-2 py-1 rounded flex flex-col items-center gap-0.5">
                         <span>IP: {silentIp}</span>

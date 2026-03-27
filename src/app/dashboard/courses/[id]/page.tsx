@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector } from '@/store/hooks';
+import axios from 'axios'; // <-- ADDED FOR DIRECT CLOUDFLARE UPLOAD
 import { 
   ArrowLeft, Video, Plus, Trash2, UploadCloud, Search, 
   CheckCircle2, AlertCircle, FileText, Settings, Tag, 
@@ -37,7 +38,6 @@ export default function CourseManagerPage() {
   const [lectureForm, setLectureForm] = useState({ title: '', description: '', sequence: '', isFree: false, reuseVideoUrl: '' });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   
-  // FIXED: Explicit String State for Folders
   const [isNewFolder, setIsNewFolder] = useState(false);
   const [existingFolders, setExistingFolders] = useState<string[]>(['General']);
   const [selectedFolder, setSelectedFolder] = useState('General');
@@ -77,13 +77,11 @@ export default function CourseManagerPage() {
           semester: c.semester?.toString() || '', branch: c.branch || ''
         });
 
-        // Safe extraction of unique folder names
         if (c.lectures && c.lectures.length > 0) {
           const folders = new Set(c.lectures.map((l: any) => l.folderName || 'General'));
           const folderArray = Array.from(folders) as string[];
           setExistingFolders(folderArray);
           
-          // Smart update: Don't mess with selection if user is actively typing a new folder
           setSelectedFolder((prev) => {
             if (isNewFolder) return prev; 
             if (prev && folderArray.includes(prev)) return prev; 
@@ -117,44 +115,67 @@ export default function CourseManagerPage() {
     }
   }, [uploadMethod, mediaLibrary.length]);
 
+  // --- UPGRADED: DIRECT CLOUDFLARE UPLOAD LOGIC ---
   const handleUploadLecture = async (e: React.FormEvent) => {
     e.preventDefault();
     if (uploadMethod === 'upload' && !videoFile) return showToast("Please select a video file.", "error");
     if (uploadMethod === 'reuse' && !lectureForm.reuseVideoUrl) return showToast("Please select a video from the library.", "error");
     
-    // Explicitly grab the selected folder string
     const finalFolderName = selectedFolder.trim() || 'General';
-    
     setIsUploading(true);
     setUploadProgress(0);
 
-    const formData = new FormData();
-    formData.append('title', lectureForm.title);
-    formData.append('description', lectureForm.description);
-    formData.append('sequence', lectureForm.sequence);
-    formData.append('folderName', finalFolderName); 
-    formData.append('resourceType', 'video');
-    formData.append('isFree', String(lectureForm.isFree));
-    
-    if (uploadMethod === 'upload' && videoFile) formData.append('video', videoFile); 
-    else if (uploadMethod === 'reuse') formData.append('reuseVideoUrl', lectureForm.reuseVideoUrl);
-
     try {
-      const { data } = await api.post(`/courses/${courseId}/lectures`, formData, { 
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(percentCompleted);
+      let finalUid = '';
+
+      if (uploadMethod === 'upload' && videoFile) {
+        // 1. Get Secure Upload Ticket from Backend
+        const { data: ticketData } = await api.post('/lectures/upload-url');
+        const { uploadUrl, uid } = ticketData.data;
+        finalUid = uid;
+
+        // 2. Upload directly to Cloudflare, completely bypassing Render server
+        const cfFormData = new FormData();
+        cfFormData.append('file', videoFile);
+
+        await axios.post(uploadUrl, cfFormData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              setUploadProgress(percentCompleted);
+            }
           }
-        }
-      });
+        });
+      } else {
+        // Reuse existing UID
+        finalUid = lectureForm.reuseVideoUrl;
+      }
+
+      // 3. Save purely lightweight JSON Metadata to our Backend
+      const isLegacyHttp = finalUid.startsWith('http');
+      const payload: any = {
+        title: lectureForm.title,
+        description: lectureForm.description,
+        sequence: lectureForm.sequence,
+        folderName: finalFolderName,
+        resourceType: 'video',
+        isFree: lectureForm.isFree,
+      };
+
+      if (uploadMethod === 'upload') {
+        payload.cloudflareUid = finalUid;
+      } else {
+        if (isLegacyHttp) payload.videoUrl = finalUid; // Old Cloudinary fallback
+        else payload.reuseCloudflareUid = finalUid; // New Cloudflare logic
+      }
+
+      const { data } = await api.post(`/courses/${courseId}/lectures`, payload);
 
       if (data.success) {
         setIsLectureModalOpen(false);
         showToast("Lecture added successfully!");
 
-        // Optimistically add folder to array to prevent dropdown jitter
         if (!existingFolders.includes(finalFolderName)) {
           setExistingFolders(prev => [...prev, finalFolderName]);
         }
@@ -168,7 +189,8 @@ export default function CourseManagerPage() {
         fetchCourse(); 
       }
     } catch (err: any) {
-      showToast(err.response?.data?.message || 'Video upload failed.', "error");
+      console.error(err);
+      showToast(err.response?.data?.message || err.message || 'Video upload failed.', "error");
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -374,7 +396,6 @@ export default function CourseManagerPage() {
               {course.domain === 'university' && (
                 <span className={`text-xs font-semibold ${subTextColor}`}>{course.university?.name || course.universityName} • Sem {course.semester} • {course.branch}</span>
               )}
-              {/* NEW: Course ID Badge */}
               <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium tracking-wide bg-zinc-500/10 ${subTextColor}`}>
                 ID: {courseId}
               </span>
@@ -649,9 +670,10 @@ export default function CourseManagerPage() {
                           <div className={`flex justify-center items-center h-full text-xs font-medium ${subTextColor}`}>No past uploads found.</div>
                         ) : (
                           filteredLibrary.map((item, idx) => {
-                            const isSelected = lectureForm.reuseVideoUrl === item.videoUrl;
+                            const uidToUse = item.cloudflareUid || item.videoUrl;
+                            const isSelected = lectureForm.reuseVideoUrl === uidToUse;
                             return (
-                              <div key={idx} onClick={() => setLectureForm({...lectureForm, reuseVideoUrl: item.videoUrl})} className={`p-3 rounded-lg border cursor-pointer transition-all flex justify-between items-center ${isSelected ? 'border-[#FE6100] bg-[#FE6100]/10' : isCoding ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-300'}`}>
+                              <div key={idx} onClick={() => setLectureForm({...lectureForm, reuseVideoUrl: uidToUse})} className={`p-3 rounded-lg border cursor-pointer transition-all flex justify-between items-center ${isSelected ? 'border-[#FE6100] bg-[#FE6100]/10' : isCoding ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-300'}`}>
                                 <div className="flex flex-col truncate pr-4">
                                   <span className={`text-sm font-medium truncate ${isSelected ? 'text-[#FE6100]' : textColor}`}>{item.title}</span>
                                   <span className={`text-[10px] uppercase tracking-wider mt-0.5 ${subTextColor}`}>From: {item.course?.title || 'Unknown Course'}</span>
@@ -681,7 +703,7 @@ export default function CourseManagerPage() {
                   {isUploading && uploadMethod === 'upload' && (
                     <div className="w-full flex flex-col gap-1.5">
                       <div className="flex justify-between items-center text-xs font-bold">
-                        <span className={textColor}>{uploadProgress < 100 ? 'Uploading to server...' : 'Processing on Cloudinary...'}</span>
+                        <span className={textColor}>{uploadProgress < 100 ? 'Uploading direct to Cloudflare...' : 'Finalizing metadata...'}</span>
                         <span className="text-[#FE6100]">{uploadProgress}%</span>
                       </div>
                       <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
