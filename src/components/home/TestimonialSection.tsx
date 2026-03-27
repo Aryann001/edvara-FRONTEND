@@ -9,43 +9,57 @@ interface Testimonial {
   name: string;
   role: string;
   text: string;
+  profilePic: string;
 }
 
 const testimonials: Testimonial[] = [
-  { 
-    name: "Vivek Awasthi", 
-    role: "RGPV Student", 
-    text: "Your way of teaching is better than many experienced teachers. Truly the best resource for RGPV students—it feels like having a placement mentor without the massive college fees. Aur kya chahiye!" 
+  {
+    name: "Chandramani",
+    role: "Computer Science Student",
+    text: "Thank you Sachin bhaiya for your countless efforts. Your dedication to the students is truly inspiring! ❤️❤️❤️❤️",
+    profilePic: "/students/s1.jpeg"
   },
-  { 
-    name: "Sunil Kakodiya", 
-    role: "Engineering Student", 
-    text: "This content is incredibly helpful. I've been studying without much guidance, and your teaching style is simple yet impactful. Thank you so much for the clarity." 
+  {
+    name: "Yuti Mishra",
+    role: "3rd Sem Student",
+    text: "Thank you so much bhaiya! Bohot badiya padhate ho aap. I got so much help for my 3rd-semester exams through your videos.",
+    profilePic: "/students/s2.jpeg"
   },
-  { 
-    name: "Car X Flex", 
-    role: "Tech Enthusiast", 
-    text: "Sir, where have you been? Your teaching style is amazing and the content is actually updated. Easily one of the best teachers I've found online." 
+  {
+    name: "Muskan",
+    role: "Engineering Student",
+    text: "Thank you so much Sachin sir 🤗 Apne video bana di, it helped me clarify so many doubts!",
+    profilePic: "/students/s3.jpeg"
   },
-  { 
-    name: "Isu Hope", 
-    role: "Computer Science Student", 
-    text: "Thank you so much for your hard work and support, Bhaiya! The effort you put into helping us understand these concepts really shows." 
+  {
+    name: "Sarvesh Sejwar",
+    role: "RGPV Student",
+    text: "Kya hi bolu sir! Aaj lga topper feer se zinda ho gya 🔥 Sabse achha paper gya OOPM ka thanks to you.",
+    profilePic: "/students/s4.jpeg"
   },
-  { 
-    name: "Study KK", 
-    role: "JUT Jharkhand Student", 
-    text: "I'm from Jharkhand University of Technology and I just wanted to say thank you! The concepts are finally crystal clear now." 
+  {
+    name: "Mahi",
+    role: "Tech Enthusiast",
+    text: "Sachin Sir is honestly the best teacher for RGPV OOPM right now. 🙌 The content is exactly what we need.",
+    profilePic: "/students/s5.jpeg"
   },
-  { 
-    name: "Abhishek Singh", 
-    role: "Engineering Aspirant", 
-    text: "Thank you, Sir! Please keep helping us students like this. Your guidance makes a huge difference in our preparation." 
+  {
+    name: "Unnati",
+    role: "Computer Science Student",
+    text: "Thank you bhaiya itna accha content free me dene ke liye. Bhagwan apke channel ko bohot age badhye, we all are supporting you! ❤️❤️",
+    profilePic: "/students/s6.jpeg"
   },
-  { 
-    name: "Yuti Mishra", 
-    role: "3rd Sem Student", 
-    text: "Thank you so much, Bhaiya! You teach so well. I got so much help for my 3rd-semester exams through your videos." 
+  {
+    name: "Sam",
+    role: "Student",
+    text: "Sir, your consistency in uploading lectures for different subjects at the same time shows your hard work. You truly deserve all the success! 🎉❤️❤️",
+    profilePic: "/students/s7.jpeg"
+  },
+  {
+    name: "Amratansh",
+    role: "Engineering Student",
+    text: "Grt bhaiya… Aapki vjh se DSA and Discrete Mathematics dono exam acche gye. Thank you for the guidance!",
+    profilePic: "/students/s8.jpeg"
   }
 ];
 
@@ -90,7 +104,7 @@ function MarqueeRow({ items, direction = 1, baseVelocity = 5, isCoding }: Marque
             <div className="self-stretch inline-flex justify-between items-start">
               <div className="flex justify-start items-start gap-3 md:gap-4">
                 <div className="w-9 h-9 md:w-12 md:h-12 rounded-full bg-[#FE6100] shrink-0 overflow-hidden">
-                   <img src={`/logo.svg`} alt={item.name} className="w-full h-full object-cover" />
+                   <img src={item.profilePic} alt={item.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="inline-flex flex-col justify-start items-start">
                   <div className={`justify-center ${isCoding ? 'text-white' : 'text-neutral-950'} text-sm md:text-lg font-medium font-['Helvena'] leading-tight md:leading-6`}>{item.name}</div>

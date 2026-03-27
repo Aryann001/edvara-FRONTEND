@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector } from '@/store/hooks';
-import axios from 'axios'; // <-- ADDED FOR DIRECT CLOUDFLARE UPLOAD
+import * as tus from 'tus-js-client'; // <-- ADDED: The heavy-duty resumable uploader
 import { 
   ArrowLeft, Video, Plus, Trash2, UploadCloud, Search, 
   CheckCircle2, AlertCircle, FileText, Settings, Tag, 
@@ -115,7 +115,7 @@ export default function CourseManagerPage() {
     }
   }, [uploadMethod, mediaLibrary.length]);
 
-  // --- UPGRADED: DIRECT CLOUDFLARE UPLOAD LOGIC ---
+  // --- UPGRADED: TUS PROTOCOL CLOUDFLARE UPLOAD LOGIC ---
   const handleUploadLecture = async (e: React.FormEvent) => {
     e.preventDefault();
     if (uploadMethod === 'upload' && !videoFile) return showToast("Please select a video file.", "error");
@@ -129,23 +129,31 @@ export default function CourseManagerPage() {
       let finalUid = '';
 
       if (uploadMethod === 'upload' && videoFile) {
-        // 1. Get Secure Upload Ticket from Backend
-        const { data: ticketData } = await api.post('/lectures/upload-url');
+        // 1. Get Secure TUS Upload Ticket from Backend (Must pass file size)
+        const { data: ticketData } = await api.post('/lectures/upload-url', { 
+          uploadLength: videoFile.size 
+        });
         const { uploadUrl, uid } = ticketData.data;
         finalUid = uid;
 
-        // 2. Upload directly to Cloudflare, completely bypassing Render server
-        const cfFormData = new FormData();
-        cfFormData.append('file', videoFile);
-
-        await axios.post(uploadUrl, cfFormData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.total) {
-              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        // 2. Upload directly to Cloudflare via TUS protocol (Handles up to 50GB files)
+        await new Promise<void>((resolve, reject) => {
+          const upload = new tus.Upload(videoFile, {
+            uploadUrl: uploadUrl, // Use the pre-signed URL from Cloudflare
+            retryDelays: [0, 3000, 5000, 10000, 20000], // Auto-resume if internet drops
+            chunkSize: 50 * 1024 * 1024, // 50MB chunks for max speed and stability
+            onError: function (error) {
+              reject(error);
+            },
+            onProgress: function (bytesUploaded, bytesTotal) {
+              const percentCompleted = Math.round((bytesUploaded / bytesTotal) * 100);
               setUploadProgress(percentCompleted);
+            },
+            onSuccess: function () {
+              resolve();
             }
-          }
+          });
+          upload.start();
         });
       } else {
         // Reuse existing UID

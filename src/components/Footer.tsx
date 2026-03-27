@@ -8,7 +8,7 @@ import { Instagram, Linkedin, Youtube } from 'lucide-react';
 // --- DATA CONFIGURATION ---
 const socialLinks = [
   { icon: Instagram, href: "https://www.instagram.com/sachin.bhardwaaj", brandColor: "#E4405F" },
-  { icon: Linkedin, href: "https://www.linkedin.com/in/sachindwivedii", brandColor: "#0A66C2" },
+  { icon: Linkedin, href: "https://www.linkedin.com/company/edvara-official/posts/?feedView=all", brandColor: "#0A66C2" },
   { icon: Youtube, href: "https://www.youtube.com/@Btech.Junction", brandColor: "#FF0000" },
 ];
 
@@ -32,11 +32,8 @@ const courseLinks = [
 ];
 
 const quickLinks = [
-  { name: "Free Resources", href: "#" },
-  { name: "Blogs", href: "#" },
-  { name: "Privacy Policy", href: "#" },
-  { name: "Terms & Conditions", href: "#" },
-  { name: "Refund Policy", href: "#" },
+  { name: "Privacy Policy", href: "/privacy-policy" },
+  { name: "Terms of Use", href: "/terms-of-use" },
 ];
 // --------------------------
 

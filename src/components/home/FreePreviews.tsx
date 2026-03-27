@@ -8,61 +8,93 @@ import { useAppSelector } from '@/store/hooks';
 
 const engineerPreviews = [
   {
-    title: "RGPV 2nd Year | Most Important Questions",
+    title: "RGPV Engineering Physics | Full Course",
     stats: "5 videos • 34k+ views",
-    link: "/testimonial/t1.webp",
-    id: "rgpv-2nd"
+    link: "/thumbnails/universities/01.png",
+    id: "1",
+    ytLink: "https://youtube.com/playlist?list=PLVbxzb9b13LAxBeM2d5D9Ep5VxtpYG1HO&si=vay6bEF5X_jTKhVt",
+    isComingSoon : false
   },
   {
-    title: "Theory of Computation (TOC) Full Course | BTech 3rd Year",
-    stats: "62 videos • 100k+ views",
-    link: "/testimonial/t2.webp",
-    id: "toc-course"
+    title: "AKTU Engineering Chemistry | Full Course",
+    stats: "",
+    link: "/thumbnails/universities/02.png",
+    id: "2",
+    ytLink: "https://www.youtube.com/@EdvaraOfficial/playlists",
+    isComingSoon : true
   },
   {
-    title: "RGPV BTech 2nd Year | Guidance",
-    stats: "28 videos • 50k+ views",
-    link: "/testimonial/t3.webp",
-    id: "rgpv-guidance"
+    title: "RGPV Basic Civil & Engineering Mechanics | Full Course",
+    stats: "",
+    link: "/thumbnails/universities/03.png",
+    id: "3",
+    ytLink: "https://www.youtube.com/@EdvaraOfficial/playlists",
+    isComingSoon : true
   },
   {
-    title: "RGPV BTech 1st Year | Guidance",
-    stats: "2 videos • 9k+ views",
-    link: "/testimonial/t4.webp",
-    id: "rgpv-1st"
+    title: "IKG PTU Object Oriented Programming | Full Course",
+    stats: "",
+    link: "/thumbnails/universities/04.png",
+    id: "4",
+    ytLink: "https://www.youtube.com/@EdvaraOfficial/playlists",
+    isComingSoon : true
+  },
+  {
+    title: "SPPU Pune Mathematics 2 | Full Course",
+    stats: "",
+    link: "/thumbnails/universities/05.png",
+    id: "5",
+    ytLink: "https://www.youtube.com/@EdvaraOfficial/playlists",
+    isComingSoon : true
   }
 ];
 
 const codingPreviews = [
   {
-    title: "Full Stack Web Development Roadmap 2026",
+    title: "Java DSA for Placement | Complete Course 2026",
     stats: "12 videos • 45k+ views",
-    link: "/testimonial/t1.webp",
-    id: "fs-roadmap"
+    link: "/thumbnails/coding/01.png",
+    id: "1",
+    ytLink: "https://www.youtube.com/@EdvaraCoding/playlists",
+    isComingSoon : true
   },
   {
-    title: "Mastering React & Next.js for Placements",
+    title: "Aptitude & Logical Reasoning | Complete Course 2026",
     stats: "45 videos • 80k+ views",
-    link: "/testimonial/t2.webp",
-    id: "react-mastery"
+    link: "/thumbnails/coding/02.png",
+    id: "2",
+    ytLink: "https://www.youtube.com/@EdvaraCoding/playlists",
+    isComingSoon : true
   },
   {
-    title: "Data Structures & Algorithms in JavaScript",
+    title: "Zero to Placements | Complete Roadmap",
     stats: "50 videos • 120k+ views",
-    link: "/testimonial/t3.webp",
-    id: "dsa-js"
+    link: "/thumbnails/coding/03.png",
+    id: "3",
+    ytLink: "https://www.youtube.com/@EdvaraCoding/playlists",
+    isComingSoon : true
   },
   {
-    title: "AI Tools for Modern Developers",
+    title: "Tech Placement Roadmaps | 2026",
     stats: "8 videos • 15k+ views",
-    link: "/testimonial/t4.webp",
-    id: "ai-tools"
+    link: "/thumbnails/coding/04.png",
+    id: "4",
+    ytLink: "https://www.youtube.com/@EdvaraCoding/playlists",
+    isComingSoon : true
+  },
+  {
+    title: "Complete C++ for Placement | Complete Course 2026",
+    stats: "8 videos • 15k+ views",
+    link: "/thumbnails/coding/05.png",
+    id: "5",
+    ytLink: "https://www.youtube.com/@EdvaraCoding/playlists",
+    isComingSoon : true
   }
 ];
 
 const socialLinks = [
   { icon: Instagram, href: "https://www.instagram.com/sachin.bhardwaaj", color: "#E4405F" },
-  { icon: Linkedin, href: "https://www.linkedin.com/in/sachindwivedii", color: "#0A66C2" },
+  { icon: Linkedin, href: "https://www.linkedin.com/company/edvara-official/posts/?feedView=all", color: "#0A66C2" },
   { icon: Youtube, href: "https://www.youtube.com/@Btech.Junction", color: "#FF0000" },
 ];
 
@@ -121,7 +153,7 @@ export default function FreePreviews() {
                 className="flex flex-col gap-6"
               >
                 {currentPreviews.map((item) => (
-                  <Link key={item.id} href={youtubeChannelLink} target="_blank" className="group">
+                  <Link key={item.id} href={item.ytLink} target="_blank" className="group">
                     <motion.div 
                       whileHover={{ x: 10 }}
                       className={`w-full p-3 md:p-4 ${cardBg} rounded-xl md:rounded-2xl shadow-[0px_5px_10px_rgba(0,0,0,0.10),0px_18px_18px_rgba(0,0,0,0.04)] border ${borderTheme} flex items-start gap-4 md:gap-5 transition-all`}
@@ -144,7 +176,7 @@ export default function FreePreviews() {
                         <p className={`${textSub} text-sm md:text-base font-normal font-['Helvena']`}>
                           {item.stats}
                         </p>
-                        <span className="text-[#FE6100] text-sm font-normal font-['Helvena'] mt-1">Free</span>
+                        <span className="text-[#FE6100] text-sm font-normal font-['Helvena'] mt-1">{item.isComingSoon ? `Coming soon` : `Free`}</span>
                       </div>
                       <div className="w-6 h-6 flex items-center justify-center shrink-0 mt-1">
                         <ExternalLink className="w-4 h-4 md:w-5 md:h-5 text-gray-300 transition-colors duration-300 group-hover:text-[#FE6100]" />
@@ -208,7 +240,7 @@ export default function FreePreviews() {
               </AnimatePresence>
               
               <div className={`absolute bottom-6 left-6 md:bottom-8 md:left-8 pointer-events-none transition-opacity duration-300 ${isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
-                <p className={`${isCoding ? 'text-white' : 'text-white/60'} font-['Helvena'] text-xs md:text-sm uppercase tracking-widest mb-1`}>Owner Introduction</p>
+                <p className={`${isCoding ? 'text-white' : 'text-white/60'} font-['Helvena'] text-xs md:text-sm uppercase tracking-widest mb-1`}>Founder & CEO</p>
                 <p className="text-white text-lg md:text-2xl font-medium font-['Helvena']">The Edvara Mission</p>
               </div>
             </div>

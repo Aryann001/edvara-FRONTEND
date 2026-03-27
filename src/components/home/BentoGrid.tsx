@@ -6,19 +6,19 @@ import { useAppSelector } from '@/store/hooks';
 
 const engineerPreviews = [
   {
-    title: "Theory of Computation Full Course | BTech",
+    title: "DBMS Exam Strategy",
     stats: "62 videos • 100k+ views",
-    thumbnail: "/testimonial/t1.webp"
+    thumbnail: "/thumbnails/bentoGrid/01.webp"
   },
   {
-    title: "RGPV BTech 2nd Year | Guidance",
+    title: "Master Plan For All Semesters",
     stats: "28 videos • 50k+ views",
-    thumbnail: "/testimonial/t2.webp"
+    thumbnail: "/thumbnails/bentoGrid/02.webp"
   },
   {
-    title: "RGPV 2nd Year | Most Important Questions",
+    title: "Complete Plan For Placement",
     stats: "5 videos • 34k+ views",
-    thumbnail: "/testimonial/t3.webp"
+    thumbnail: "/thumbnails/bentoGrid/03.webp"
   }
 ];
 
@@ -26,17 +26,17 @@ const codingPreviews = [
   {
     title: "Coding junction - Launch",
     stats: "1 video • 4k+ views",
-    thumbnail: "/testimonial/t3.webp"
+    thumbnail: "/thumbnails/bentoGrid/04.jpeg"
   },
   {
-    title: "Aptitude & Reasoning",
+    title: "Java DSA for Placement",
     stats: "Coming Soon",
-    thumbnail: "/testimonial/t1.webp"
+    thumbnail: "/thumbnails/coding/01.png"
   },
   {
-    title: "Web Development",
+    title: "Aptitude & Logical Reasoning",
     stats: "Coming Soon",
-    thumbnail: "/testimonial/t1.webp"
+    thumbnail: "/thumbnails/coding/02.png"
   }
 ];
 
@@ -146,7 +146,7 @@ const BentoGrid = () => {
                 <div className={`absolute left-0 right-0 h-[2px] ${lineTheme} z-0`} />
                 <div className="flex -space-x-2 md:-space-x-3 relative z-10">
                    {[1,2,3,4].map((student, i) => (
-                     <img src={`/students/s${student}.png`}
+                     <img src={`/students/s${student}.jpeg`}
                           alt={`Student ${student}`} key={i} className={`w-7 h-7 md:w-10 md:h-10 rounded-full border-2 ${isCoding ? 'border-stone-900' : 'border-white'} bg-neutral-200`} />
                    ))}
                 </div>

@@ -124,7 +124,7 @@ export default function HeroSection() {
                       <span
                         className={`hidden lg:inline ${themeTextMain} text-3xl md:text-5xl lg:text-6xl font-medium font-['Helvena'] leading-tight lg:leading-[67.20px] mt-3 lg:mt-0`}
                       >
-                        Clear your university exams.
+                        {isCoding ? `Let's Code for Placements` : `Clear your university exams.`}
                       </span>
                     </div>
                   </div>
@@ -159,7 +159,7 @@ export default function HeroSection() {
                       >
                         <img
                           className="w-10 h-10 rounded-full bg-gray-200 object-cover"
-                          src={`/students/s${student}.png`}
+                          src={`/students/s${student}.jpeg`}
                           alt={`Student ${student}`}
                         />
                       </div>
@@ -178,13 +178,13 @@ export default function HeroSection() {
                       <div
                         className={`${themeTextMain} text-sm md:text-base font-semibold font-['Helvena']`}
                       >
-                        5.0
+                        4.8
                       </div>
                     </div>
                     <div
                       className={`${themeTextSub} text-sm font-medium font-['Helvena'] leading-6`}
                     >
-                      from 200+ reviews
+                      from 856+ reviews
                     </div>
                   </div>
                 </div>
@@ -261,7 +261,7 @@ export default function HeroSection() {
             <div
               className={`text-center ${themeTextMain} text-sm lg:text-base font-normal font-['Helvena'] uppercase tracking-wider relative z-10`}
             >
-              University exam prep
+              {isCoding ? `Clear your coding rounds` : `University exam prep`}
             </div>
 
             <div className="w-full max-w-[1280px] relative overflow-hidden flex">

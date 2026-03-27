@@ -48,7 +48,7 @@ export default function TermsOfUsePage() {
             Terms of Use
           </h1>
           <p className={`${textSub} text-sm md:text-base font-medium`}>
-            Last updated: October 2023
+            Last updated: March 2026
           </p>
         </div>
 
