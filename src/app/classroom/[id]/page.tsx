@@ -23,7 +23,6 @@ import {
   VolumeX,
   Gauge,
 } from "lucide-react";
-import { Stream } from "@cloudflare/stream-react";
 
 export default function CoursePlayerPage() {
   const { id: courseId } = useParams();
@@ -698,17 +697,11 @@ export default function CoursePlayerPage() {
 
                 {activeLecture.cloudflareUid ? (
                   // --- NETFLIX-LEVEL NATIVE CLOUDFLARE PLAYER ---
-                  <div className="absolute inset-0 w-full h-full flex z-0">
-                    <Stream
-                      src={activeLecture.cloudflareUid}
-                      controls={true}
-                      responsive={false}
-                      autoplay
-                      primaryColor="#FE6100"
-                      onEnded={handleVideoEnd}
-                      className="w-full h-full"
-                    />
-                  </div>
+                  <iframe
+                    src={`https://customer-${process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${activeLecture.cloudflareUid}/iframe?controls=true&autoplay=true&primaryColor=%23FE6100`}
+                    className="absolute inset-0 w-full h-full border-none z-0"
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen;"
+                  />
                 ) : (
                   // --- LEGACY CLOUDINARY PLAYER (With Custom Controls) ---
                   <>
