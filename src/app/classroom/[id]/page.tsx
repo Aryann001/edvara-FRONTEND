@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { useAppSelector } from "@/store/hooks";
+import * as tus from "tus-js-client";
 import api from "@/services/api";
 import {
   PlayCircle,
@@ -45,6 +46,7 @@ export default function CoursePlayerPage() {
   const [completedLectures, setCompletedLectures] = useState<string[]>([]);
 
   const [activeLecture, setActiveLecture] = useState<any>(null);
+  const [playbackToken, setPlaybackToken] = useState<string | null>(null); // <-- NEW STATE FOR THE TICKET
   const [obfuscatedVideoUrl, setObfuscatedVideoUrl] = useState<string | null>(
     null
   );
@@ -55,7 +57,6 @@ export default function CoursePlayerPage() {
     {}
   );
 
-  // Anti-Piracy States
   const [watermarkId, setWatermarkId] = useState({
     top: "10%",
     left: "10%",
@@ -74,7 +75,6 @@ export default function CoursePlayerPage() {
   const [silentIp, setSilentIp] = useState<string>("Tracking...");
   const [geoCoords, setGeoCoords] = useState<string>("Locating...");
 
-  // Legacy Video Player States
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -214,10 +214,18 @@ export default function CoursePlayerPage() {
     }
 
     try {
+      // Clear token briefly to force iframe refresh if necessary
+      setPlaybackToken(null);
+
       const { data } = await api.get(`/lectures/${lectureMeta._id}`);
       if (data.success) {
         setActiveLecture(data.data);
         setWatermarkId((prev) => ({ ...prev, trace: data.trace }));
+
+        // --- NEW: Catch the Cryptographic Token ---
+        if (data.playbackToken) {
+          setPlaybackToken(data.playbackToken);
+        }
 
         if (data.data.videoUrl && !data.data.cloudflareUid) {
           await obfuscateVideo(data.data.videoUrl);
@@ -696,19 +704,18 @@ export default function CoursePlayerPage() {
                 </AnimatePresence>
 
                 {activeLecture.cloudflareUid ? (
-                  // --- NETFLIX-LEVEL NATIVE CLOUDFLARE SCRIPT ---
-                  // This is the officially recommended, 100% reliable way to embed Cloudflare Stream.
-                  // It handles sizing, adaptive streaming, and doesn't hit 404s like raw iframes do during processing.
-                  <div
-                    className="w-full h-full relative"
-                    style={{ paddingTop: "56.25%" }}
-                  >
-                    <iframe
-                      src={`https://iframe.videodelivery.net/${activeLecture.cloudflareUid}?autoplay=true&primaryColor=%23FE6100`}
-                      className="absolute top-0 left-0 w-full h-full border-none z-0"
-                      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen;"
-                    />
-                  </div>
+                  // --- NETFLIX-LEVEL SECURE CLOUDFLARE SCRIPT ---
+                  // Notice we pass the JWT Playback Token into the URL, not the raw Video ID!
+                  // This is completely locked down.
+                  <iframe
+                    src={`https://customer-${
+                      process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_ID
+                    }.cloudflarestream.com/${
+                      playbackToken || activeLecture.cloudflareUid
+                    }/iframe?controls=true&autoplay=true&primaryColor=%23FE6100`}
+                    className="absolute inset-0 w-full h-full border-none z-0"
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen;"
+                  />
                 ) : (
                   // --- LEGACY CLOUDINARY PLAYER (With Custom Controls) ---
                   <>
