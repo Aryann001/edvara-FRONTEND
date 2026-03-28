@@ -148,10 +148,16 @@ export default function UniversitiesDashboard() {
 
     try {
       if (editingUni) {
-        await api.put(`/universities/${editingUni._id}`, submitData);
+        // FIXED: Added headers for multipart/form-data
+        await api.put(`/universities/${editingUni._id}`, submitData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         showToast("University updated successfully");
       } else {
-        await api.post('/universities', submitData);
+        // FIXED: Added headers for multipart/form-data
+        await api.post('/universities', submitData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         showToast("University created successfully");
       }
       setIsPanelOpen(false);

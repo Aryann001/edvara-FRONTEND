@@ -65,10 +65,10 @@ export default function HelpPopup({ isOpen, onClose }: HelpPopupProps) {
                 <div className={`${textMain} text-sm md:text-base lg:text-lg`}>
                   <span className="font-normal">Mail Support </span>
                   <a 
-                    href="mailto:Sachin@email.com" 
+                    href="mailto:ceo@edvara.in" 
                     className="font-bold hover:text-[#FE6100] transition-colors underline decoration-transparent hover:decoration-[#FE6100] underline-offset-4"
                   >
-                    Sachin@email.com
+                    ceo@edvara.in
                   </a>
                 </div>
               </div>

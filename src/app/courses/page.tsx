@@ -256,7 +256,7 @@ export default function CourseSelection() {
             </motion.p>
           </div>
 
-          <div className="w-full max-w-[800px] flex items-center justify-between gap-2 overflow-x-hidden pb-4 px-2">
+          <div className="w-full max-w-[800px] flex items-center justify-between gap-2 overflow-x-hidden py-4 px-2">
             {[1, 2, 3, 4].map((num, idx) => (
               <React.Fragment key={num}>
                 <div className="flex items-center gap-3 shrink-0">

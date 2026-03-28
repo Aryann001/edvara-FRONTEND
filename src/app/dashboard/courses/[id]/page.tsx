@@ -1533,7 +1533,7 @@ export default function CourseManagerPage() {
                   </label>
                   <textarea
                     rows={2}
-                    required
+                    // required
                     value={lectureForm.description}
                     onChange={(e) =>
                       setLectureForm({

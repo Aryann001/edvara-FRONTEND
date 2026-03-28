@@ -193,9 +193,7 @@ export default function WhyEdvaraTable() {
                 {comparisonData.map((row, index) => (
                   <React.Fragment key={index}>
                     <div
-                      className={`self-stretch h-14 lg:h-16 inline-flex justify-start items-center gap-8 group transition-colors ${
-                        isCoding ? "hover:bg-white/5" : "hover:bg-neutral-50/50"
-                      }`}
+                      className={`self-stretch h-14 lg:h-16 inline-flex justify-start items-center gap-8 group transition-colors`}
                     >
                       <div
                         className={`w-72 lg:w-96 ${textMain} text-base lg:text-lg font-medium leading-tight lg:leading-7 group-hover:text-[#FE6100] transition-colors`}
