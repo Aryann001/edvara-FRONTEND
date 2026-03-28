@@ -341,7 +341,7 @@ export default function ProfilePage() {
               disabled={!hasChanges || isSaving || !firstName || !email}
               className={`h-12 px-8 rounded-lg font-medium text-sm inline-flex items-center gap-2 transition-all active:scale-95 ${
                 hasChanges && !isSaving && firstName && email
-                  ? 'bg-[#FE6100] hover:bg-[#e05600] text-white shadow-[0_4px_14px_rgba(254,97,0,0.3)]'
+                  ? 'bg-[#FE6100] hover:bg-[#e05600] cursor-pointer text-white shadow-[0_4px_14px_rgba(254,97,0,0.3)]'
                   : `${inputBg} ${textSub} cursor-not-allowed`
               }`}
             >

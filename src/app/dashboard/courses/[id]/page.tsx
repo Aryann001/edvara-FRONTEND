@@ -24,6 +24,7 @@ import {
   Loader2,
   Save,
   Edit3,
+  Copy,
 } from "lucide-react";
 import api from "@/services/api";
 
@@ -73,7 +74,7 @@ export default function CourseManagerPage() {
   });
   const [videoFile, setVideoFile] = useState<File | null>(null);
 
-  // --- NEW: EDIT LECTURE STATE ---
+  // --- EDIT LECTURE STATE ---
   const [isEditLectureModalOpen, setIsEditLectureModalOpen] = useState(false);
   const [editLectureForm, setEditLectureForm] = useState({
     id: "",
@@ -83,6 +84,7 @@ export default function CourseManagerPage() {
     folderName: "",
     isFree: false,
   });
+  const [isEditNewFolder, setIsEditNewFolder] = useState(false); // Added to track edit folder toggle
 
   const [isNewFolder, setIsNewFolder] = useState(false);
   const [existingFolders, setExistingFolders] = useState<string[]>(["General"]);
@@ -112,7 +114,8 @@ export default function CourseManagerPage() {
     branch: "",
   });
 
-  const [newThumbnail, setNewThumbnail] = useState<File | null>(null); // For course settings
+  const [newThumbnail, setNewThumbnail] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
   const [mediaLibrary, setMediaLibrary] = useState<any[]>([]);
   const [librarySearch, setLibrarySearch] = useState("");
@@ -153,6 +156,8 @@ export default function CourseManagerPage() {
           semester: c.semester?.toString() || "",
           branch: c.branch || "",
         });
+
+        if (c.thumbnail?.url) setThumbnailPreview(c.thumbnail.url);
 
         if (c.lectures && c.lectures.length > 0) {
           const folders = new Set(
@@ -195,6 +200,14 @@ export default function CourseManagerPage() {
       fetchLibrary();
     }
   }, [uploadMethod, mediaLibrary.length]);
+
+  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewThumbnail(file);
+      setThumbnailPreview(URL.createObjectURL(file));
+    }
+  };
 
   const handleUploadLecture = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -293,16 +306,17 @@ export default function CourseManagerPage() {
     }
   };
 
-  // --- NEW: EDIT LECTURE HANDLER ---
   const openEditLectureModal = (lecture: any) => {
+    const fName = lecture.folderName || "General";
     setEditLectureForm({
       id: lecture._id,
       title: lecture.title,
       description: lecture.description || "",
       sequence: lecture.sequence,
-      folderName: lecture.folderName || "General",
+      folderName: fName,
       isFree: lecture.isFree,
     });
+    setIsEditNewFolder(!existingFolders.includes(fName));
     setIsEditLectureModalOpen(true);
   };
 
@@ -310,7 +324,11 @@ export default function CourseManagerPage() {
     e.preventDefault();
     setIsUploading(true);
     try {
-      await api.put(`/lectures/${editLectureForm.id}`, editLectureForm);
+      const payload = {
+        ...editLectureForm,
+        folderName: editLectureForm.folderName.trim() || "General",
+      };
+      await api.put(`/lectures/${editLectureForm.id}`, payload);
       showToast("Lecture updated successfully!");
       setIsEditLectureModalOpen(false);
       fetchCourse();
@@ -393,7 +411,6 @@ export default function CourseManagerPage() {
       formData.append("mentorName", editForm.mentorName);
       formData.append("mentorDescription", editForm.mentorDescription);
 
-      // Send arrays as stringified JSON to preserve structure safely via FormData
       formData.append("tags", JSON.stringify(tagsArray));
       formData.append("features", JSON.stringify(featuresArray));
 
@@ -623,10 +640,16 @@ export default function CourseManagerPage() {
                   {course.semester} • {course.branch}
                 </span>
               )}
+              {/* COPY ID FEATURE */}
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium tracking-wide bg-zinc-500/10 ${subTextColor}`}
+                onClick={() => {
+                  navigator.clipboard.writeText(courseId);
+                  showToast("Course ID copied to clipboard!", "success");
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium tracking-wide bg-zinc-500/10 ${subTextColor} cursor-pointer hover:bg-zinc-500/20 flex items-center gap-1 transition-colors`}
+                title="Copy ID"
               >
-                ID: {courseId}
+                ID: {courseId} <Copy size={10} />
               </span>
             </div>
             <h1
@@ -869,9 +892,7 @@ export default function CourseManagerPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) =>
-                      setNewThumbnail(e.target.files?.[0] || null)
-                    }
+                    onChange={handleThumbnailSelect}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                   <button className="text-xs text-[#FE6100] hover:underline font-medium">
@@ -884,6 +905,17 @@ export default function CourseManagerPage() {
                   )}
                 </div>
               </div>
+
+              {/* Live Preview */}
+              {thumbnailPreview && (
+                <div className="w-full sm:w-1/2 h-32 rounded-lg border border-dashed border-zinc-500/50 overflow-hidden relative">
+                  <img
+                    src={thumbnailPreview}
+                    alt="Course Thumbnail"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
 
               <div className="flex flex-col gap-1.5">
                 <label className={`text-xs font-semibold ${subTextColor}`}>
@@ -1201,7 +1233,7 @@ export default function CourseManagerPage() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className={`fixed top-[10%] left-1/2 -translate-x-1/2 w-[95%] sm:w-full max-w-lg p-6 sm:p-8 rounded-2xl border shadow-2xl z-50 flex flex-col gap-6 ${modalBg}`}
+              className={`fixed top-[25%] left-1/2 -translate-x-1/2 w-[95%] sm:w-full max-w-lg p-6 sm:p-8 rounded-2xl border shadow-2xl z-50 flex flex-col gap-6 ${modalBg}`}
             >
               <h2
                 className={`text-2xl font-['Libre_Baskerville'] italic ${textColor}`}
@@ -1212,25 +1244,68 @@ export default function CourseManagerPage() {
                 onSubmit={handleUpdateLecture}
                 className="flex flex-col gap-4"
               >
+                {/* --- SMART FOLDER SELECTION FOR EDIT --- */}
                 <div className="flex flex-col gap-2">
-                  <label
-                    className={`text-xs uppercase tracking-wider ${subTextColor}`}
-                  >
-                    Folder Assignment
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editLectureForm.folderName}
-                    onChange={(e) =>
-                      setEditLectureForm({
-                        ...editLectureForm,
-                        folderName: e.target.value,
-                      })
-                    }
-                    className={`h-11 px-4 rounded-lg border outline-none transition-all ${inputBg}`}
-                  />
+                  <div className="flex justify-between items-end">
+                    <label
+                      className={`text-xs font-medium uppercase tracking-wider ${subTextColor}`}
+                    >
+                      Folder Assignment
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditNewFolder(!isEditNewFolder);
+                        setEditLectureForm({
+                          ...editLectureForm,
+                          folderName: !isEditNewFolder
+                            ? ""
+                            : existingFolders[0] || "General",
+                        });
+                      }}
+                      className="text-xs text-[#FE6100] hover:underline"
+                    >
+                      {isEditNewFolder
+                        ? "Select Existing Folder"
+                        : "+ Create New Folder"}
+                    </button>
+                  </div>
+
+                  {isEditNewFolder ? (
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Unit 1: Advanced Topics"
+                      value={editLectureForm.folderName}
+                      onChange={(e) =>
+                        setEditLectureForm({
+                          ...editLectureForm,
+                          folderName: e.target.value,
+                        })
+                      }
+                      className={`h-11 px-4 rounded-lg border outline-none transition-all ${inputBg}`}
+                    />
+                  ) : (
+                    <select
+                      required
+                      value={editLectureForm.folderName}
+                      onChange={(e) =>
+                        setEditLectureForm({
+                          ...editLectureForm,
+                          folderName: e.target.value,
+                        })
+                      }
+                      className={`h-11 px-4 rounded-lg border outline-none transition-all ${inputBg}`}
+                    >
+                      {existingFolders.map((folder) => (
+                        <option key={folder} value={folder}>
+                          {folder}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
+
                 <div className="flex gap-4">
                   <div className="flex-1 flex flex-col gap-1">
                     <label

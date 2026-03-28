@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { useAppSelector } from "@/store/hooks";
-import * as tus from "tus-js-client";
 import api from "@/services/api";
 import {
   PlayCircle,
@@ -28,6 +27,8 @@ import {
 export default function CoursePlayerPage() {
   const { id: courseId } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedLectureId = searchParams.get("lecture");
 
   const isCoding = useAppSelector((state) => state.app.isCodingDomain);
   const user = useAppSelector((state: any) => state.app.user);
@@ -46,7 +47,7 @@ export default function CoursePlayerPage() {
   const [completedLectures, setCompletedLectures] = useState<string[]>([]);
 
   const [activeLecture, setActiveLecture] = useState<any>(null);
-  const [playbackToken, setPlaybackToken] = useState<string | null>(null); // <-- NEW STATE FOR THE TICKET
+  const [playbackToken, setPlaybackToken] = useState<string | null>(null);
   const [obfuscatedVideoUrl, setObfuscatedVideoUrl] = useState<string | null>(
     null
   );
@@ -57,6 +58,7 @@ export default function CoursePlayerPage() {
     {}
   );
 
+  // Anti-Piracy States
   const [watermarkId, setWatermarkId] = useState({
     top: "10%",
     left: "10%",
@@ -153,19 +155,32 @@ export default function CoursePlayerPage() {
         }
 
         if (data.data.lectures && data.data.lectures.length > 0) {
-          const firstFolder = data.data.lectures[0].folderName || "General";
-          setExpandedUnits({ [firstFolder]: true });
+          let targetLecture = null;
 
-          const firstUncompleted = data.data.lectures.find(
-            (l: any) =>
-              (l.isFree || userIsEnrolled) && !completedIds.includes(l._id)
-          );
-          const lectureToPlay =
-            firstUncompleted ||
-            data.data.lectures.find((l: any) => l.isFree || userIsEnrolled);
+          // Check if specific lecture was passed in URL
+          if (requestedLectureId) {
+            targetLecture = data.data.lectures.find(
+              (l: any) => l._id === requestedLectureId
+            );
+          }
 
-          if (lectureToPlay) {
-            handleSelectLecture(lectureToPlay, userIsEnrolled);
+          if (!targetLecture) {
+            const firstUncompleted = data.data.lectures.find(
+              (l: any) =>
+                (l.isFree || userIsEnrolled) && !completedIds.includes(l._id)
+            );
+            targetLecture =
+              firstUncompleted ||
+              data.data.lectures.find((l: any) => l.isFree || userIsEnrolled);
+          }
+
+          if (targetLecture) {
+            const targetFolder = targetLecture.folderName || "General";
+            setExpandedUnits({ [targetFolder]: true });
+            handleSelectLecture(targetLecture, userIsEnrolled);
+          } else {
+            const firstFolder = data.data.lectures[0].folderName || "General";
+            setExpandedUnits({ [firstFolder]: true });
           }
         }
       } catch (err: any) {
@@ -177,7 +192,7 @@ export default function CoursePlayerPage() {
       }
     };
     fetchCourseAndEnrollment();
-  }, [courseId, user]);
+  }, [courseId, user, requestedLectureId]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -214,15 +229,16 @@ export default function CoursePlayerPage() {
     }
 
     try {
-      // Clear token briefly to force iframe refresh if necessary
       setPlaybackToken(null);
+
+      // Silently update browser URL without reloading
+      window.history.replaceState(null, "", `?lecture=${lectureMeta._id}`);
 
       const { data } = await api.get(`/lectures/${lectureMeta._id}`);
       if (data.success) {
         setActiveLecture(data.data);
         setWatermarkId((prev) => ({ ...prev, trace: data.trace }));
 
-        // --- NEW: Catch the Cryptographic Token ---
         if (data.playbackToken) {
           setPlaybackToken(data.playbackToken);
         }
@@ -231,6 +247,16 @@ export default function CoursePlayerPage() {
           await obfuscateVideo(data.data.videoUrl);
         }
 
+        // --- REAL TIME DURATION UI UPDATE ---
+        // Dynamically update the course syllabus to show the new real-time duration fetched by the backend
+        setCourse((prev: any) => {
+          if (!prev) return prev;
+          const updatedLectures = prev.lectures.map((l: any) =>
+            l._id === data.data._id ? { ...l, duration: data.data.duration } : l
+          );
+          return { ...prev, lectures: updatedLectures };
+        });
+
         setIsPlaying(true);
         setShowSettings(false);
         if (window.innerWidth < 1024)
@@ -238,8 +264,7 @@ export default function CoursePlayerPage() {
       }
     } catch (err: any) {
       showToast(
-        err.response?.data?.message ||
-          "Failed to load video stream. Please verify your enrollment.",
+        err.response?.data?.message || "Failed to load video stream.",
         "error"
       );
     }
@@ -336,9 +361,6 @@ export default function CoursePlayerPage() {
     };
   }, [activeLecture, watermarkId.trace]);
 
-  // ==========================================
-  // LEGACY VIDEO PLAYER LOGIC (For Cloudinary Fallbacks)
-  // ==========================================
   const formatTime = (timeInSeconds: number) => {
     if (isNaN(timeInSeconds)) return "0:00";
     const minutes = Math.floor(timeInSeconds / 60);
@@ -414,9 +436,7 @@ export default function CoursePlayerPage() {
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     if (isPlaying) {
       controlsTimeoutRef.current = setTimeout(() => {
-        if (!showSettings) {
-          setShowControls(false);
-        }
+        if (!showSettings) setShowControls(false);
       }, 3000);
     }
   };
@@ -627,6 +647,13 @@ export default function CoursePlayerPage() {
                                 Now Playing • {lecture.duration || 0} mins
                               </span>
                             )}
+                            {!isActive && lecture.duration > 0 && (
+                              <span
+                                className={`${textSub} text-xs font-normal opacity-50`}
+                              >
+                                {lecture.duration} mins
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -645,7 +672,6 @@ export default function CoursePlayerPage() {
     <div
       className={`min-h-screen w-full pt-[100px] lg:pt-[130px] pb-14 flex justify-center ${bgTheme} font-['Helvena'] transition-colors duration-500`}
     >
-      {/* TOAST NOTIFICATION */}
       <AnimatePresence>
         {toast.show && (
           <motion.div
@@ -669,7 +695,6 @@ export default function CoursePlayerPage() {
       </AnimatePresence>
 
       <div className="w-full max-w-[1440px] px-4 md:px-8 lg:px-12 xl:px-20 flex flex-col lg:flex-row items-start gap-8">
-        {/* LEFT COLUMN: PLAYER */}
         <div className="flex-1 w-full flex flex-col gap-6 lg:gap-8">
           <div
             ref={playerContainerRef}
@@ -677,237 +702,225 @@ export default function CoursePlayerPage() {
             onMouseLeave={() => {
               if (isPlaying && !showSettings) setShowControls(false);
             }}
-            className="w-full relative bg-black rounded-xl overflow-hidden aspect-video shadow-lg group flex flex-col justify-center items-center"
+            className="w-full relative bg-black rounded-xl overflow-hidden shadow-lg group flex flex-col justify-center items-center"
           >
-            {activeLecture ? (
-              <>
-                {/* --- SECURE BLACKOUT OVERLAY --- */}
-                <AnimatePresence>
-                  {isObscured && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute inset-0 z-[60] bg-black flex flex-col items-center justify-center text-white cursor-pointer"
-                      onClick={() => setIsObscured(false)}
-                    >
-                      <Lock className="w-12 h-12 mb-4 text-[#FE6100]" />
-                      <h2 className="text-lg md:text-xl font-bold tracking-widest font-['Helvena']">
-                        SECURE PLAYBACK
-                      </h2>
-                      <p className="text-xs md:text-sm mt-2 opacity-70">
-                        Video paused to protect content. Click to resume.
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            <div className="relative w-full pb-[56.25%]">
+              {activeLecture ? (
+                <>
+                  <AnimatePresence>
+                    {isObscured && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute inset-0 z-[60] bg-black flex flex-col items-center justify-center text-white cursor-pointer"
+                        onClick={() => setIsObscured(false)}
+                      >
+                        <Lock className="w-12 h-12 mb-4 text-[#FE6100]" />
+                        <h2 className="text-lg md:text-xl font-bold tracking-widest font-['Helvena']">
+                          SECURE PLAYBACK
+                        </h2>
+                        <p className="text-xs md:text-sm mt-2 opacity-70">
+                          Video paused to protect content. Click to resume.
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {activeLecture.cloudflareUid ? (
-                  // --- NETFLIX-LEVEL SECURE CLOUDFLARE SCRIPT ---
-                  // Notice we pass the JWT Playback Token into the URL, not the raw Video ID!
-                  // This is completely locked down.
-                  <iframe
-                    src={`https://customer-${
-                      process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_ID
-                    }.cloudflarestream.com/${
-                      playbackToken || activeLecture.cloudflareUid
-                    }/iframe?controls=true&autoplay=true&primaryColor=%23FE6100`}
-                    className="absolute inset-0 w-full h-full border-none z-0"
-                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen;"
-                  />
-                ) : (
-                  // --- LEGACY CLOUDINARY PLAYER (With Custom Controls) ---
-                  <>
-                    <video
-                      ref={videoRef}
-                      src={obfuscatedVideoUrl || activeLecture.videoUrl}
-                      onTimeUpdate={handleTimeUpdate}
-                      onLoadedMetadata={handleLoadedMetadata}
-                      onEnded={handleVideoEnd}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
-                      controlsList="nodownload nofullscreen noremoteplayback"
-                      disablePictureInPicture
-                      className="w-full h-full object-cover absolute inset-0 z-0"
-                      autoPlay
+                  {activeLecture.cloudflareUid ? (
+                    <iframe
+                      src={`https://iframe.videodelivery.net/${
+                        playbackToken || activeLecture.cloudflareUid
+                      }?autoplay=true&primaryColor=%23FE6100`}
+                      className="absolute inset-0 w-full h-full border-none z-0"
+                      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen;"
                     />
+                  ) : (
+                    <>
+                      <video
+                        ref={videoRef}
+                        src={obfuscatedVideoUrl || activeLecture.videoUrl}
+                        onTimeUpdate={handleTimeUpdate}
+                        onLoadedMetadata={handleLoadedMetadata}
+                        onEnded={handleVideoEnd}
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                        controlsList="nodownload nofullscreen noremoteplayback"
+                        disablePictureInPicture
+                        className="absolute inset-0 w-full h-full object-cover z-0"
+                        autoPlay
+                      />
+                      <div
+                        className="absolute inset-0 z-10 cursor-pointer"
+                        onClick={() =>
+                          showSettings ? setShowSettings(false) : togglePlay()
+                        }
+                      />
 
-                    <div
-                      className="absolute inset-0 z-10 cursor-pointer"
-                      onClick={() => {
-                        if (showSettings) setShowSettings(false);
-                        else togglePlay();
-                      }}
-                    />
-
-                    <div
-                      className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 z-20 ${
-                        showControls || !isPlaying ? "opacity-100" : "opacity-0"
-                      }`}
-                    >
-                      <div className="w-full flex items-center mb-4 relative z-30">
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={progress}
-                          onChange={handleSeek}
-                          className="w-full h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-[#FE6100]"
-                          style={{
-                            background: `linear-gradient(to right, #FE6100 ${progress}%, rgba(255,255,255,0.3) ${progress}%)`,
-                          }}
-                        />
-                      </div>
-
-                      <div className="flex justify-between items-center text-white relative z-30">
-                        <div className="flex items-center gap-5">
-                          <button
-                            onClick={togglePlay}
-                            className="hover:text-[#FE6100] transition-colors focus:outline-none"
-                          >
-                            {isPlaying ? (
-                              <Pause className="w-6 h-6 fill-current" />
-                            ) : (
-                              <Play className="w-6 h-6 fill-current" />
-                            )}
-                          </button>
-
-                          <button
-                            onClick={toggleMute}
-                            className="hover:text-[#FE6100] transition-colors focus:outline-none"
-                          >
-                            {isMuted ? (
-                              <VolumeX className="w-5 h-5" />
-                            ) : (
-                              <Volume2 className="w-5 h-5" />
-                            )}
-                          </button>
-
-                          <span className="text-xs sm:text-sm font-medium tracking-wider opacity-90 hidden sm:block">
-                            {currentTime}{" "}
-                            <span className="opacity-50 mx-1">/</span>{" "}
-                            {duration}
-                          </span>
+                      <div
+                        className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 z-20 ${
+                          showControls || !isPlaying
+                            ? "opacity-100"
+                            : "opacity-0"
+                        }`}
+                      >
+                        <div className="w-full flex items-center mb-4 relative z-30">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={progress}
+                            onChange={handleSeek}
+                            className="w-full h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-[#FE6100]"
+                            style={{
+                              background: `linear-gradient(to right, #FE6100 ${progress}%, rgba(255,255,255,0.3) ${progress}%)`,
+                            }}
+                          />
                         </div>
 
-                        <div className="flex items-center gap-5 relative">
-                          <AnimatePresence>
-                            {showSettings && (
-                              <motion.div
-                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                className="absolute bottom-full right-10 mb-4 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg p-2 min-w-[140px] flex flex-col gap-1 z-50"
-                              >
-                                <div className="px-3 py-2 text-xs text-white/50 uppercase tracking-wider font-semibold border-b border-white/10 mb-1 flex items-center gap-2">
-                                  <Gauge className="w-3 h-3" /> Speed
-                                </div>
-                                {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
-                                  <button
-                                    key={rate}
-                                    onClick={() =>
-                                      handlePlaybackRateChange(rate)
-                                    }
-                                    className={`w-full text-left px-3 py-2 text-sm rounded transition-colors ${
-                                      playbackRate === rate
-                                        ? "bg-[#FE6100]/20 text-[#FE6100] font-medium"
-                                        : "text-white hover:bg-white/10"
-                                    }`}
-                                  >
-                                    {rate === 1 ? "Normal" : `${rate}x`}
-                                  </button>
-                                ))}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                        <div className="flex justify-between items-center text-white relative z-30">
+                          <div className="flex items-center gap-5">
+                            <button
+                              onClick={togglePlay}
+                              className="hover:text-[#FE6100] transition-colors focus:outline-none"
+                            >
+                              {isPlaying ? (
+                                <Pause className="w-6 h-6 fill-current" />
+                              ) : (
+                                <Play className="w-6 h-6 fill-current" />
+                              )}
+                            </button>
+                            <button
+                              onClick={toggleMute}
+                              className="hover:text-[#FE6100] transition-colors focus:outline-none"
+                            >
+                              {isMuted ? (
+                                <VolumeX className="w-5 h-5" />
+                              ) : (
+                                <Volume2 className="w-5 h-5" />
+                              )}
+                            </button>
+                            <span className="text-xs sm:text-sm font-medium tracking-wider opacity-90 hidden sm:block">
+                              {currentTime}{" "}
+                              <span className="opacity-50 mx-1">/</span>{" "}
+                              {duration}
+                            </span>
+                          </div>
 
-                          <button
-                            onClick={() => setShowSettings(!showSettings)}
-                            className={`transition-colors focus:outline-none ${
-                              showSettings
-                                ? "text-[#FE6100]"
-                                : "text-white opacity-80 hover:opacity-100"
-                            }`}
-                          >
-                            <Settings className="w-5 h-5" />
-                          </button>
+                          <div className="flex items-center gap-5 relative">
+                            <AnimatePresence>
+                              {showSettings && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                  className="absolute bottom-full right-10 mb-4 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg p-2 min-w-[140px] flex flex-col gap-1 z-50"
+                                >
+                                  <div className="px-3 py-2 text-xs text-white/50 uppercase tracking-wider font-semibold border-b border-white/10 mb-1 flex items-center gap-2">
+                                    <Gauge className="w-3 h-3" /> Speed
+                                  </div>
+                                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                                    <button
+                                      key={rate}
+                                      onClick={() =>
+                                        handlePlaybackRateChange(rate)
+                                      }
+                                      className={`w-full text-left px-3 py-2 text-sm rounded transition-colors ${
+                                        playbackRate === rate
+                                          ? "bg-[#FE6100]/20 text-[#FE6100] font-medium"
+                                          : "text-white hover:bg-white/10"
+                                      }`}
+                                    >
+                                      {rate === 1 ? "Normal" : `${rate}x`}
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
 
-                          <button
-                            onClick={toggleFullscreen}
-                            className="hover:text-[#FE6100] transition-colors focus:outline-none opacity-80 hover:opacity-100"
-                          >
-                            <Maximize className="w-5 h-5" />
-                          </button>
+                            <button
+                              onClick={() => setShowSettings(!showSettings)}
+                              className={`transition-colors focus:outline-none ${
+                                showSettings
+                                  ? "text-[#FE6100]"
+                                  : "text-white opacity-80 hover:opacity-100"
+                              }`}
+                            >
+                              <Settings className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={toggleFullscreen}
+                              className="hover:text-[#FE6100] transition-colors focus:outline-none opacity-80 hover:opacity-100"
+                            >
+                              <Maximize className="w-5 h-5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Secure Watermark Overlay 1: ID */}
-                <AnimatePresence>
-                  {watermarkId.visible && watermarkId.trace && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: watermarkId.scale }}
-                      exit={{ opacity: 0, scale: 1.05 }}
-                      transition={{ ease: "easeInOut", duration: 2 }}
-                      style={{ top: watermarkId.top, left: watermarkId.left }}
-                      className="absolute z-30 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
-                    >
-                      <span className="text-white text-xs md:text-sm font-mono tracking-widest px-2 py-1 rounded">
-                        ID:{" "}
-                        {watermarkId.trace.viewerId ||
-                          user?._id ||
-                          user?.id ||
-                          "GUEST"}
-                      </span>
-                    </motion.div>
+                    </>
                   )}
-                </AnimatePresence>
 
-                {/* Secure Watermark Overlay 2: IP & Loc */}
-                <AnimatePresence>
-                  {watermarkIp.visible && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: watermarkIp.scale }}
-                      exit={{ opacity: 0, scale: 1.05 }}
-                      transition={{ ease: "easeInOut", duration: 2 }}
-                      style={{ top: watermarkIp.top, left: watermarkIp.left }}
-                      className="absolute z-30 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
-                    >
-                      <span className="text-white text-[10px] md:text-xs font-mono tracking-widest px-2 py-1 rounded flex flex-col items-center gap-0.5">
-                        <span>IP: {silentIp}</span>
-                        <span>LOC: {geoCoords}</span>
-                      </span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </>
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-500 relative">
-                <PlayCircle className="w-12 h-12 mb-2 opacity-50" />
-                <p>Select a lecture from the syllabus to start</p>
-                <Lock className="w-40 h-40 absolute opacity-5 pointer-events-none" />
-              </div>
-            )}
+                  <AnimatePresence>
+                    {watermarkId.visible && watermarkId.trace && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: watermarkId.scale }}
+                        exit={{ opacity: 0, scale: 1.05 }}
+                        transition={{ ease: "easeInOut", duration: 2 }}
+                        style={{ top: watermarkId.top, left: watermarkId.left }}
+                        className="absolute z-30 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
+                      >
+                        <span className="text-white text-xs md:text-sm font-mono tracking-widest px-2 py-1 rounded">
+                          ID:{" "}
+                          {watermarkId.trace.viewerId ||
+                            user?._id ||
+                            user?.id ||
+                            "GUEST"}
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <AnimatePresence>
+                    {watermarkIp.visible && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: watermarkIp.scale }}
+                        exit={{ opacity: 0, scale: 1.05 }}
+                        transition={{ ease: "easeInOut", duration: 2 }}
+                        style={{ top: watermarkIp.top, left: watermarkIp.left }}
+                        className="absolute z-30 pointer-events-none select-none flex flex-col justify-center items-center opacity-20 mix-blend-overlay drop-shadow-sm"
+                      >
+                        <span className="text-white text-[10px] md:text-xs font-mono tracking-widest px-2 py-1 rounded flex flex-col items-center gap-0.5">
+                          <span>IP: {silentIp}</span>
+                          <span>LOC: {geoCoords}</span>
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              ) : (
+                <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-500">
+                  <PlayCircle className="w-12 h-12 mb-2 opacity-50" />
+                  <p>Select a lecture from the syllabus to start</p>
+                  <Lock className="w-40 h-40 absolute opacity-5 pointer-events-none" />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Metadata */}
           <div className="w-full flex flex-col gap-4">
             <h1
               className={`${textMain} text-xl md:text-2xl font-bold leading-tight`}
             >
-              {activeLecture ? activeLecture.title : course.title}
+              {activeLecture ? activeLecture.title : course?.title}
             </h1>
             <p className={`${textSub} text-sm`}>
-              {activeLecture ? activeLecture.description : course.description}
+              {activeLecture ? activeLecture.description : course?.description}
             </p>
           </div>
 
-          {/* TABS */}
           <div
             ref={tabsRef}
             className="w-full flex flex-col gap-6 mt-2 scroll-mt-24"
@@ -983,7 +996,7 @@ export default function CoursePlayerPage() {
                       Class Notes
                     </h3>
                     <div className="flex flex-col gap-3">
-                      {course.notes?.map((note: any) => (
+                      {course?.notes?.map((note: any) => (
                         <div
                           key={note._id}
                           className={`w-full p-4 rounded-md outline outline-1 flex justify-between items-center ${
@@ -1018,7 +1031,7 @@ export default function CoursePlayerPage() {
                           )}
                         </div>
                       ))}
-                      {(!course.notes || course.notes.length === 0) && (
+                      {(!course?.notes || course.notes.length === 0) && (
                         <p className={textSub}>No notes uploaded yet.</p>
                       )}
                     </div>
@@ -1043,7 +1056,7 @@ export default function CoursePlayerPage() {
                       Previous Year Questions
                     </h3>
                     <div className="flex flex-col gap-3">
-                      {course.pyqs?.map((pyq: any) => (
+                      {course?.pyqs?.map((pyq: any) => (
                         <div
                           key={pyq._id}
                           className={`w-full p-4 rounded-md outline outline-1 flex justify-between items-center ${
@@ -1078,7 +1091,7 @@ export default function CoursePlayerPage() {
                           )}
                         </div>
                       ))}
-                      {(!course.pyqs || course.pyqs.length === 0) && (
+                      {(!course?.pyqs || course.pyqs.length === 0) && (
                         <p className={textSub}>No PYQs uploaded yet.</p>
                       )}
                     </div>
